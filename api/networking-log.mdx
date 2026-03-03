@@ -5,6 +5,10 @@ description: Log class for HTTP requests and responses in React Native Beagle
 
 `NetworkingLog` extends `BeagleLog` to provide specialized handling for network requests and responses. It automatically tracks request details, response status, and sets appropriate log levels based on HTTP status codes.
 
+<Warning>
+  `NetworkingLog` is **not exported** from the public API. Network logging is handled automatically by the `BeagleProvider` component. This documentation is provided for reference to understand how network logs are structured.
+</Warning>
+
 ## Properties
 
 Inherits all properties from [`BeagleLog`](/api/beagle-log), plus:
@@ -110,80 +114,78 @@ When you enable the Networking plugin, React Native Beagle automatically interce
 
 You typically don't need to create `NetworkingLog` instances manually.
 
-## Usage Examples
+## Log Structure Examples
 
-### Manual Request Logging
+These examples show the structure of `NetworkingLog` instances as they appear in your Beagle inspector. Network logs are created automatically - you don't create them manually.
+
+### Request in Progress (Loading)
 
 ```typescript
-import { NetworkingLog } from 'react-native-beagle';
-
-const request = {
-  url: 'https://api.example.com/users',
-  method: 'GET',
-  headers: { 'Authorization': 'Bearer token' }
-};
-
-// Log the request (loading state)
-const log = new NetworkingLog(request);
-// log.message: "GET /users"
-// log.level: "loading"
-// log.host: "api.example.com"
+// Structure of a pending network request log
+{
+  id: "abc123",
+  time: Date,
+  message: "GET /users",
+  level: "loading",
+  url: "https://api.example.com/users",
+  host: "api.example.com",
+  request: {
+    url: "https://api.example.com/users",
+    method: "GET",
+    headers: { "Authorization": "Bearer token" }
+  },
+  response: undefined
+}
 ```
 
-### With Successful Response
+### Successful Response
 
 ```typescript
-const request = {
-  url: 'https://api.example.com/users',
-  method: 'POST',
-  body: { name: 'John' }
-};
-
-const response = {
-  kind: 'data' as const,
-  status: 201,
-  headers: { 'content-type': 'application/json' },
-  body: { id: 1, name: 'John' },
-  duration: 234
-};
-
-const log = new NetworkingLog(request, response);
-// log.message: "POST /users"
-// log.level: "success"
-// log.response.body: { id: 1, name: 'John' }
+// Structure after successful response
+{
+  id: "abc123",
+  time: Date,
+  message: "POST /users",
+  level: "success",
+  url: "https://api.example.com/users",
+  host: "api.example.com",
+  request: {
+    url: "https://api.example.com/users",
+    method: "POST",
+    body: { name: "John" }
+  },
+  response: {
+    kind: "data",
+    status: 201,
+    headers: { "content-type": "application/json" },
+    body: { id: 1, name: "John" },
+    duration: 234
+  }
+}
 ```
 
-### With Error Response
+### Error Response
 
 ```typescript
-const request = {
-  url: 'https://api.example.com/users/999',
-  method: 'GET'
-};
-
-const response = {
-  kind: 'error' as const,
-  status: 404,
-  error: 'User not found',
-  duration: 123
-};
-
-const log = new NetworkingLog(request, response);
-// log.message: "GET /users/999"
-// log.level: "error"
-```
-
-### Filtering Network Logs
-
-```typescript
-const log = new NetworkingLog({
-  url: 'https://api.github.com/repos',
-  method: 'GET'
-});
-
-log.filter('github'); // true (matches host)
-log.filter('repos'); // true (matches path)
-log.filter('POST'); // false
+// Structure for error response
+{
+  id: "abc123",
+  time: Date,
+  message: "GET /users/999",
+  level: "error",
+  url: "https://api.example.com/users/999",
+  host: "api.example.com",
+  request: {
+    url: "https://api.example.com/users/999",
+    method: "GET"
+  },
+  response: {
+    kind: "error",
+    status: 404,
+    error: "User not found",
+    duration: 123
+  }
+}
 ```
 
 ## Class Definition

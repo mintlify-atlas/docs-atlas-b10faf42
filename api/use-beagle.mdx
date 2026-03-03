@@ -1,46 +1,31 @@
 ---
 title: 'useBeagle'
-description: 'Hook for accessing Beagle context and inspector controls'
+description: 'Hook for accessing the Beagle inspector controls'
 ---
 
-The `useBeagle` hook provides access to the Beagle context, allowing you to interact with logs, control the inspector, and access copy functionality.
+The `useBeagle` hook provides a simple interface to control the Beagle inspector from your components.
 
 ## Return Value
 
-The hook returns an object with the following properties:
-
-<ResponseField name="logs" type="Array<BeagleLog>">
-  Array of all captured logs. Each log contains id, time, message, and level properties.
-</ResponseField>
-
-<ResponseField name="addLog" type="(log: BeagleLog) => void">
-  Function to manually add a log to the inspector. Typically used internally by plugins, but can be called directly if needed.
-</ResponseField>
+The hook returns an object with the following property:
 
 <ResponseField name="showInspector" type="() => void">
   Opens the Beagle inspector modal, displaying all captured logs.
 </ResponseField>
 
-<ResponseField name="closeInspector" type="() => void">
-  Closes the Beagle inspector modal.
-</ResponseField>
-
-<ResponseField name="copy" type="((value: string) => Promise<void>) | undefined">
-  Copy function provided to `BeagleProvider`. May be `undefined` if no copy function was configured.
-</ResponseField>
-
 ## Usage
+
+The primary use case is to provide a button or UI element that opens the inspector:
 
 ```typescript
 import { useBeagle } from 'react-native-beagle';
-import { View, Button, Text } from 'react-native';
+import { View, Button } from 'react-native';
 
 function DebugPanel() {
-  const { logs, showInspector, copy } = useBeagle();
+  const { showInspector } = useBeagle();
 
   return (
     <View>
-      <Text>Total Logs: {logs.length}</Text>
       <Button
         title="Open Inspector"
         onPress={showInspector}
@@ -50,16 +35,16 @@ function DebugPanel() {
 }
 ```
 
-## Opening the Inspector
+## Floating Debug Button
 
-The most common use case is to provide a UI element that opens the inspector:
+Create a floating button to easily access the inspector during development:
 
 ```typescript
 import { useBeagle } from 'react-native-beagle';
 import { TouchableOpacity, Text } from 'react-native';
 
 function FloatingDebugButton() {
-  const { showInspector, logs } = useBeagle();
+  const { showInspector } = useBeagle();
 
   return (
     <TouchableOpacity
@@ -68,62 +53,47 @@ function FloatingDebugButton() {
         position: 'absolute',
         bottom: 20,
         right: 20,
-        backgroundColor: '#007bff',
-        padding: 10,
-        borderRadius: 20,
+        backgroundColor: '#FF6B35',
+        padding: 15,
+        borderRadius: 30,
       }}
     >
-      <Text style={{ color: 'white' }}>
-        {logs.length} Logs
+      <Text style={{ color: 'white', fontWeight: 'bold' }}>
+        Beagle
       </Text>
     </TouchableOpacity>
   );
 }
 ```
 
-## Accessing Logs
+## Conditional Rendering
 
-You can access and filter logs directly:
-
-```typescript
-import { useBeagle } from 'react-native-beagle';
-
-function ErrorCounter() {
-  const { logs } = useBeagle();
-  const errorCount = logs.filter(log => log.level === 'error').length;
-
-  return <Text>Errors: {errorCount}</Text>;
-}
-```
-
-## Manual Logging
-
-While `Beagle.log()` is the recommended approach, you can also use `addLog` directly:
+Only show the inspector button in development:
 
 ```typescript
 import { useBeagle } from 'react-native-beagle';
-import { BeagleLog } from 'react-native-beagle';
+import { Button } from 'react-native';
 
-function CustomLogger() {
-  const { addLog } = useBeagle();
+function DevToolsButton() {
+  const { showInspector } = useBeagle();
 
-  const logCustomEvent = () => {
-    const log = new BeagleLog('Custom event occurred', 'info');
-    addLog(log);
-  };
+  if (!__DEV__) {
+    return null;
+  }
 
-  return <Button title="Log Event" onPress={logCustomEvent} />;
+  return (
+    <Button 
+      title="Debug" 
+      onPress={showInspector} 
+    />
+  );
 }
 ```
 
 ## Type Definition
 
 ```typescript
-interface BeagleContextValue {
-  logs: Array<BeagleLog>;
-  addLog: (log: BeagleLog) => void;
+function useBeagle(): {
   showInspector: () => void;
-  closeInspector: () => void;
-  copy?: (value: string) => Promise<void>;
 }
 ```

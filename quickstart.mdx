@@ -37,16 +37,16 @@ This guide will help you set up React Native Beagle and start logging in your ap
     import { useBeagle } from 'react-native-beagle';
 
     function MyComponent() {
-      const { openInspector } = useBeagle();
+      const { showInspector } = useBeagle();
 
       return (
-        <Button onPress={openInspector}>Open Beagle Inspector</Button>
+        <Button onPress={showInspector}>Open Beagle Inspector</Button>
       );
     }
     ```
 
     <Note>
-      The `useBeagle` hook provides access to Beagle's context, including the `openInspector` method to show the inspector UI.
+      The `useBeagle` hook provides access to the `showInspector` method to open the inspector UI.
     </Note>
   </Step>
 
@@ -63,7 +63,7 @@ This guide will help you set up React Native Beagle and start logging in your ap
     try {
       // Some code that might throw an error
     } catch (error) {
-      Beagle.log(new ErrorLog('Something went wrong', error));
+      Beagle.log(new ErrorLog(error));
     }
     ```
 
@@ -112,7 +112,7 @@ import { View, Button } from 'react-native';
 import { BeagleProvider, useBeagle, Beagle, MessageLog } from 'react-native-beagle';
 
 function HomeScreen() {
-  const { openInspector } = useBeagle();
+  const { showInspector } = useBeagle();
 
   const handlePress = () => {
     Beagle.log(new MessageLog('Button pressed', 'info'));
@@ -121,7 +121,7 @@ function HomeScreen() {
   return (
     <View>
       <Button onPress={handlePress} title="Do Something" />
-      <Button onPress={openInspector} title="Open Beagle" />
+      <Button onPress={showInspector} title="Open Beagle" />
     </View>
   );
 }
