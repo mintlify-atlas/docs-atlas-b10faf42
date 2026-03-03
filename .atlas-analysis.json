@@ -1,0 +1,108 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "React Native Beagle",
+  "projectDescription": "An in-app debugging companion for React Native that tracks network requests, logs custom data, and provides an extensible plugin system for inspecting app behavior during development.",
+  "theme": "palm",
+  "primaryColor": "#FF6B35",
+  "lightColor": "#FFA07A",
+  "darkColor": "#E55A2B",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/log-system",
+              "concepts/plugin-architecture"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-logging",
+              "guides/network-monitoring",
+              "guides/custom-plugins",
+              "guides/content-types",
+              "guides/theming"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/beagle",
+              "api/beagle-provider",
+              "api/use-beagle"
+            ]
+          },
+          {
+            "group": "Log Classes",
+            "pages": [
+              "api/beagle-log",
+              "api/message-log",
+              "api/error-log",
+              "api/networking-log"
+            ]
+          },
+          {
+            "group": "Plugin System",
+            "pages": [
+              "api/beagle-log-plugin",
+              "api/plugin-methods"
+            ]
+          },
+          {
+            "group": "Content Types",
+            "pages": [
+              "api/content-types"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automatic network request and response logging",
+    "Extensible plugin system for custom log types",
+    "Built-in logs for messages, errors, and network activity",
+    "Rich content type system for detailed log views",
+    "BeagleProvider component and useBeagle hook",
+    "Export logs as JSON",
+    "Themeable UI with light and dark modes",
+    "Clipboard integration for easy sharing"
+  ],
+  "publicApiSurface": [
+    "Beagle.registerPlugin()",
+    "Beagle.log()",
+    "BeagleProvider",
+    "useBeagle",
+    "BeagleLog",
+    "BeagleLogPlugin",
+    "MessageLog",
+    "ErrorLog",
+    "NetworkingLog",
+    "TextContent",
+    "JsonContent",
+    "LabelContent",
+    "SectionContent",
+    "LoadingContent",
+    "BoxContent",
+    "ListContent",
+    "TabBarContent"
+  ]
+}
