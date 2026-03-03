@@ -1,0 +1,72 @@
+---
+title: BeagleLog
+description: Abstract base class for all log entries in React Native Beagle
+---
+
+`BeagleLog` is the abstract base class that all log types extend. It provides core functionality for log entries including identification, timestamps, messages, and filtering.
+
+## Properties
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the log entry. Auto-generated using nanoid(6) if not provided.
+</ResponseField>
+
+<ResponseField name="time" type="Date" required>
+  Timestamp when the log was created. Automatically set to `new Date()` during construction.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  The log message content.
+</ResponseField>
+
+<ResponseField name="level" type="LogLevel" default="info">
+  The severity level of the log. Can be one of: `'loading'`, `'info'`, `'warning'`, `'error'`, or `'success'`.
+</ResponseField>
+
+## Constructor
+
+<ParamField path="message" type="string" required>
+  The log message content.
+</ParamField>
+
+<ParamField path="level" type="LogLevel" default="info">
+  Optional severity level. One of: `'loading'` | `'info'` | `'warning'` | `'error'` | `'success'`.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional custom ID. If not provided, a unique 6-character ID is generated automatically.
+</ParamField>
+
+## Methods
+
+### filter()
+
+Filters the log based on a search query.
+
+<ParamField path="query" type="string" required>
+  The search query to filter by.
+</ParamField>
+
+**Returns:** `boolean` - `true` if the log's message contains the query (case-insensitive), `false` otherwise.
+
+```typescript
+const log = new MessageLog('User logged in successfully');
+log.filter('logged'); // true
+log.filter('error'); // false
+```
+
+## Type Definitions
+
+```typescript
+type LogLevel = 'loading' | 'info' | 'warning' | 'error' | 'success';
+
+abstract class BeagleLog {
+  id: string;
+  time: Date;
+  message: string;
+  level: LogLevel;
+
+  constructor(message: string, level?: LogLevel, id?: string);
+  filter(query: string): boolean;
+}
+```

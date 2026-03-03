@@ -1,0 +1,142 @@
+---
+title: Architecture Overview
+description: Learn how Beagle works and when to use it in your React Native application
+---
+
+Beagle is a development and testing tool for React Native applications that provides real-time logging and debugging capabilities. It's designed to help developers track application behavior, network requests, errors, and custom messages during development.
+
+## How Beagle Works
+
+Beagle operates through a provider-context pattern that wraps your React Native application:
+
+### 1. BeagleProvider
+
+The `BeagleProvider` component wraps your application and initializes the logging system. It can be enabled or disabled based on your environment:
+
+```tsx
+export const BeagleProvider: React.FC<BeagleProviderProps> = ({
+  enabled = true,
+  ...props
+}) => {
+  BeaglePlugins.setEnabled(enabled);
+
+  return enabled ? (
+    <BeagleProviderEnabled {...props} />
+  ) : (
+    <BeagleProviderDisabled {...props} />
+  );
+};
+```
+
+<Note>
+When disabled, the provider renders a minimal context that does nothing, ensuring zero performance impact in production.
+</Note>
+
+### 2. Log Collection
+
+When enabled, Beagle registers built-in plugins and sets up log collection:
+
+```tsx
+useEffect(() => {
+  BeaglePlugins.setLogAction(addLog);
+}, [addLog]);
+
+useEffect(() => {
+  Beagle.registerPlugin(new MessageLogPlugin());
+  Beagle.registerPlugin(new ErrorLogPlugin());
+}, []);
+```
+
+Logs are collected through the `BeaglePlugins` system, which:
+- Queues logs until the provider is ready
+- Routes logs to the appropriate plugin
+- Manages plugin registration and caching
+
+### 3. Log Display
+
+The `LogsModal` component provides an inspector interface that displays:
+- All collected logs in chronological order
+- Filterable and searchable log entries
+- Detailed views for each log type
+- Export capabilities for debugging
+
+## Main Components
+
+<Accordion title="BeagleProvider">
+The root component that wraps your application. It manages the enabled/disabled state and provides context to all child components.
+
+**Props:**
+- `enabled`: Boolean to enable/disable Beagle
+- `theme`: Visual theme ('light' or 'dark')
+- `copy`: Optional copy function for clipboard operations
+</Accordion>
+
+<Accordion title="BeaglePlugins">
+A static class that manages plugin registration, log routing, and caching. It ensures logs are handled by the correct plugin and queues logs when the system isn't ready.
+</Accordion>
+
+<Accordion title="BeagleLog">
+An abstract base class that all log types extend. Provides core functionality like unique IDs, timestamps, and filtering.
+</Accordion>
+
+<Accordion title="BeagleLogPlugin">
+An abstract class that defines how log types are rendered and exported. Each log type has a corresponding plugin that knows how to display it.
+</Accordion>
+
+## When to Use Beagle
+
+### Development
+
+Beagle is ideal for development because it:
+- Provides real-time visibility into application behavior
+- Tracks network requests and responses automatically
+- Captures errors with full stack traces
+- Allows custom logging with different severity levels
+
+```tsx
+import { BeagleProvider } from 'react-native-beagle';
+
+function App() {
+  return (
+    <BeagleProvider enabled={__DEV__}>
+      <YourApp />
+    </BeagleProvider>
+  );
+}
+```
+
+<Tip>
+Use the `__DEV__` constant to automatically enable Beagle only in development mode.
+</Tip>
+
+### Testing
+
+During testing, Beagle helps:
+- Verify network request/response flows
+- Confirm error handling behavior
+- Track state changes and side effects
+- Export logs for test reports
+
+### Production
+
+<Note>
+Beagle should typically be disabled in production to avoid performance overhead and prevent exposing debug information.
+</Note>
+
+If you need production logging, consider:
+- Using a dedicated analytics/error tracking service
+- Implementing selective logging for specific scenarios
+- Ensuring sensitive data is not logged
+
+## Performance Considerations
+
+When disabled, Beagle:
+- Uses a minimal provider that does nothing
+- Adds no runtime overhead
+- Includes no plugins or log collection
+- Can be tree-shaken by bundlers
+
+When enabled, Beagle:
+- Queues logs until the provider is ready
+- Caches plugin lookups for performance
+- Only processes logs when explicitly enabled

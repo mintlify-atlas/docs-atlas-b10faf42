@@ -1,0 +1,429 @@
+---
+title: Plugin Architecture
+description: Learn how Beagle's plugin system works and how to create custom plugins
+---
+
+Beagle's plugin architecture separates log data from log presentation. Each log type has a corresponding plugin that knows how to display it in the inspector. This design makes Beagle highly extensible and allows custom log types with custom UI.
+
+## BeagleLogPlugin Abstract Class
+
+All plugins extend the `BeagleLogPlugin` abstract class, which defines the contract for rendering logs:
+
+```typescript
+export abstract class BeagleLogPlugin<T extends BeagleLog> {
+  abstract name: string;
+
+  abstract canHandle(log: BeagleLog): log is T;
+  abstract provideDetailContent(log: T): DetailContent;
+
+  provideCardFooter(_: T): Content | BoxContent | null {
+    return null;
+  }
+
+  exportToJSON(log: T): string {
+    return JSON.stringify(log);
+  }
+}
+```
+
+### Required Properties and Methods
+
+<Accordion title="name: string">
+A unique identifier for the plugin. Used for debugging and display purposes.
+
+**Example:** `'Message'`, `'Error'`, `'Networking'`
+</Accordion>
+
+<Accordion title="canHandle(log: BeagleLog): log is T">
+A type guard that determines if this plugin can handle a given log. Beagle uses this to route logs to the correct plugin.
+
+**Returns:** Boolean type predicate that narrows the log type to `T`
+
+**Example:**
+```typescript
+canHandle(log: BeagleLog): log is MessageLog {
+  return log instanceof MessageLog;
+}
+```
+</Accordion>
+
+<Accordion title="provideDetailContent(log: T): DetailContent">
+Generates the detailed view content when a log is expanded in the inspector. This is where you define what information is shown and how it's laid out.
+
+**Returns:** A `DetailContent` object describing the UI structure
+</Accordion>
+
+### Optional Methods
+
+<Accordion title="provideCardFooter(log: T): Content | BoxContent | null">
+Optionally provides additional content displayed at the bottom of the log card in the list view.
+
+**Default:** Returns `null` (no footer)
+
+**Example use cases:**
+- Show request duration for network logs
+- Display stack trace preview for errors
+- Show metadata or tags
+</Accordion>
+
+<Accordion title="exportToJSON(log: T): string">
+Defines how the log should be exported. The default implementation uses `JSON.stringify(log)`.
+
+**Override this** to customize export format or exclude sensitive data.
+</Accordion>
+
+## How Plugins Work
+
+The plugin system follows this flow:
+
+### 1. Plugin Registration
+
+Plugins are registered during app initialization:
+
+```typescript
+Beagle.registerPlugin(new MessageLogPlugin());
+Beagle.registerPlugin(new ErrorLogPlugin());
+```
+
+Internally, this adds the plugin to a static array:
+
+```typescript
+static registerPlugin(plugin: BeagleLogPlugin<BeagleLog>) {
+  this.plugins.push(plugin);
+}
+```
+
+### 2. Log Routing
+
+When a log is displayed, Beagle finds its plugin:
+
+```typescript
+static findPlugin<T extends BeagleLog>(log: T): BeagleLogPlugin<T> {
+  const logName = log.constructor.name;
+
+  // Check cache first
+  if (this.cache.has(logName)) {
+    return this.cache.get(logName) as BeagleLogPlugin<T>;
+  }
+
+  // Find matching plugin
+  const logPlugin = this.plugins.find((plugin) => plugin.canHandle(log));
+
+  if (!logPlugin) {
+    throw new Error(`No plugin found for log: ${typeof log} ${logName}`);
+  }
+
+  // Cache for next time
+  this.cache.set(logName, logPlugin);
+  return logPlugin as BeagleLogPlugin<T>;
+}
+```
+
+<Info>
+Plugin lookups are cached by log constructor name, so each log type only searches plugins once.
+</Info>
+
+### 3. Content Generation
+
+The plugin's methods are called to render the log:
+
+- **List view:** `provideCardFooter()` for additional card content
+- **Detail view:** `provideDetailContent()` for the expanded view
+- **Export:** `exportToJSON()` when exporting logs
+
+## Built-in Plugins
+
+Beagle includes three built-in plugins that demonstrate different rendering strategies:
+
+### MessageLogPlugin
+
+The simplest plugin, displaying just the message text:
+
+```typescript
+export class MessageLogPlugin extends BeagleLogPlugin<MessageLog> {
+  name: string = 'Message';
+
+  canHandle(log: BeagleLog): log is MessageLog {
+    return log instanceof MessageLog;
+  }
+
+  provideDetailContent(log: BeagleLog): DetailContent {
+    return {
+      key: 'message',
+      kind: 'list',
+      children: [
+        {
+          kind: 'text',
+          text: log.message,
+          selectable: true,
+        },
+      ],
+    };
+  }
+}
+```
+
+**Key features:**
+- Minimal implementation
+- Makes text selectable for copying
+- No footer content
+
+### ErrorLogPlugin
+
+Displays error details with stack traces:
+
+```typescript
+export class ErrorLogPlugin extends BeagleLogPlugin<ErrorLog> {
+  name: string = 'Error';
+
+  canHandle(log: BeagleLog): log is ErrorLog {
+    return log instanceof ErrorLog;
+  }
+
+  provideDetailContent({ error, message }: ErrorLog): DetailContent {
+    if (!(error instanceof Error)) {
+      return {
+        key: 'error',
+        kind: 'list',
+        children: [
+          {
+            kind: 'text',
+            text: message,
+            selectable: true,
+          },
+        ],
+      };
+    }
+
+    const listItems: Content[] = [
+      { kind: 'label', label: 'Name', value: error.name },
+      {
+        kind: 'label',
+        label: 'Message',
+        value: error.message,
+      },
+    ];
+
+    if (error.stack) {
+      listItems.push({
+        kind: 'text',
+        text: 'Stack',
+        variant: 'body',
+        bold: true,
+      });
+      listItems.push({ kind: 'text', text: error.stack, selectable: true });
+    }
+
+    if (error.cause) {
+      listItems.push({
+        kind: 'text',
+        text: 'Cause',
+        variant: 'body',
+        bold: true,
+        selectable: true,
+      });
+      listItems.push({
+        kind: 'text',
+        text: error.cause?.toString() ?? '',
+        selectable: true,
+      });
+    }
+
+    return {
+      key: 'error',
+      kind: 'list',
+      children: listItems,
+    };
+  }
+
+  provideCardFooter(log: ErrorLog): Content | BoxContent | null {
+    if (!(log.error instanceof Error)) {
+      return null;
+    }
+
+    return {
+      kind: 'text',
+      text: log.error.stack ?? '',
+      variant: 'caption',
+      lines: 2,
+    };
+  }
+}
+```
+
+**Key features:**
+- Handles both Error objects and primitive errors
+- Shows error name, message, stack, and cause
+- Preview stack trace in card footer (2 lines)
+- All error details selectable for copying
+
+### NetworkingLogPlugin
+
+The most complex plugin, with tabbed interface and rich formatting:
+
+```typescript
+export class NetworkingLogPlugin extends BeagleLogPlugin<NetworkingLog> {
+  name: string = 'Networking';
+
+  canHandle(log: BeagleLog): log is NetworkingLog {
+    return log instanceof NetworkingLog;
+  }
+
+  provideCardFooter(log: NetworkingLog): BoxContent {
+    const children: Content[] = [
+      {
+        kind: 'text',
+        text: log.host,
+        variant: 'caption',
+      },
+    ];
+
+    if (log.response) {
+      children.push({
+        kind: 'text',
+        text: `${log.response.duration}ms`,
+        variant: 'caption',
+      });
+    }
+
+    return {
+      key: 'footer',
+      kind: 'box',
+      direction: 'row',
+      justifyContent: 'space-between',
+      children,
+    };
+  }
+
+  provideDetailContent(log: NetworkingLog): DetailContent {
+    return {
+      kind: 'tab-bar',
+      tabs: [
+        {
+          title: 'Info',
+          content: this.provideInfoContent(log),
+        },
+        {
+          title: 'Request',
+          content: this.provideRequestContent(log.request),
+        },
+        {
+          title: 'Response',
+          content: this.provideResponseContent(log.response),
+        },
+      ],
+    };
+  }
+
+  // ... additional helper methods for tabs ...
+}
+```
+
+**Key features:**
+- Tabbed interface (Info, Request, Response)
+- Shows host and duration in footer
+- Renders headers and body for both request and response
+- JSON formatting for request/response bodies
+- Handles loading state for pending requests
+
+<Tip>
+The NetworkingLogPlugin demonstrates advanced content types like tabs, sections, and JSON viewers. Use it as a reference when building complex custom plugins.
+</Tip>
+
+## Plugin Registration with Beagle.registerPlugin()
+
+Plugins must be registered before their log types are used. Registration typically happens in the provider:
+
+```typescript
+useEffect(() => {
+  Beagle.registerPlugin(new MessageLogPlugin());
+  Beagle.registerPlugin(new ErrorLogPlugin());
+}, []);
+```
+
+<Note>
+Plugins should be registered in a `useEffect` to ensure they're only registered once, even if the component re-renders.
+</Note>
+
+### Registration Order
+
+Plugins are checked in registration order. If multiple plugins can handle the same log type, the first registered plugin wins.
+
+**Best practice:** Register more specific plugins before generic ones.
+
+### Conditional Registration
+
+You can conditionally register plugins based on configuration:
+
+```typescript
+useEffect(() => {
+  Beagle.registerPlugin(new MessageLogPlugin());
+  Beagle.registerPlugin(new ErrorLogPlugin());
+  
+  if (enableNetworkLogging) {
+    Beagle.registerPlugin(new NetworkingLogPlugin());
+  }
+}, [enableNetworkLogging]);
+```
+
+## Creating Custom Plugins
+
+To create a custom plugin:
+
+1. **Create a custom log class** extending `BeagleLog`
+2. **Create a plugin class** extending `BeagleLogPlugin<YourLog>`
+3. **Implement required methods** (`name`, `canHandle`, `provideDetailContent`)
+4. **Optionally override** `provideCardFooter` and `exportToJSON`
+5. **Register the plugin** during app initialization
+
+**Example:**
+
+```typescript
+// 1. Custom log class
+export class AnalyticsLog extends BeagleLog {
+  eventName: string;
+  properties: Record<string, any>;
+
+  constructor(eventName: string, properties: Record<string, any>) {
+    super(`Analytics: ${eventName}`, 'info');
+    this.eventName = eventName;
+    this.properties = properties;
+  }
+}
+
+// 2. Custom plugin
+export class AnalyticsLogPlugin extends BeagleLogPlugin<AnalyticsLog> {
+  name = 'Analytics';
+
+  canHandle(log: BeagleLog): log is AnalyticsLog {
+    return log instanceof AnalyticsLog;
+  }
+
+  provideDetailContent(log: AnalyticsLog): DetailContent {
+    return {
+      kind: 'list',
+      children: [
+        { kind: 'label', label: 'Event', value: log.eventName },
+        { kind: 'json', data: log.properties },
+      ],
+    };
+  }
+
+  provideCardFooter(log: AnalyticsLog): Content {
+    return {
+      kind: 'text',
+      text: `${Object.keys(log.properties).length} properties`,
+      variant: 'caption',
+    };
+  }
+}
+
+// 3. Register
+Beagle.registerPlugin(new AnalyticsLogPlugin());
+
+// 4. Use
+const log = new AnalyticsLog('page_view', { page: '/home', user_id: '123' });
+BeaglePlugins.log(log);
+```
+
+This plugin system makes Beagle infinitely extensible while maintaining a consistent user experience.

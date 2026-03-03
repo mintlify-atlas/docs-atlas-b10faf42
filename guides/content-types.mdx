@@ -1,0 +1,469 @@
+---
+title: Content Type System
+description: Build rich, interactive detail views for your logs using Beagle's flexible content type system
+---
+
+Beagle uses a flexible content system to display log details. Each content type serves a specific purpose and can be combined to create rich, informative detail views.
+
+## Available Content Types
+
+Beagle provides eight content types, each with unique properties and use cases:
+
+### Text
+
+Displays text with optional formatting options.
+
+```ts
+interface TextContent {
+  kind: 'text';
+  text: string;
+  variant?: 'body' | 'caption' | 'heading'; // Typography variant
+  bold?: boolean;                             // Bold text
+  selectable?: boolean;                       // Enable text selection
+  lines?: number;                             // Maximum number of lines
+}
+```
+
+<Tabs>
+  <Tab title="Basic Text">
+    ```ts
+    {
+      kind: 'text',
+      text: 'This is a simple text message'
+    }
+    ```
+  </Tab>
+  <Tab title="Bold Header">
+    ```ts
+    {
+      kind: 'text',
+      text: 'Request Headers',
+      variant: 'body',
+      bold: true
+    }
+    ```
+  </Tab>
+  <Tab title="Selectable Code">
+    ```ts
+    {
+      kind: 'text',
+      text: error.stack,
+      selectable: true,
+      lines: 10
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### JSON
+
+Displays JSON data in an interactive, collapsible tree view.
+
+```ts
+interface JsonContent {
+  kind: 'json';
+  data: Record<string, any>;
+  expanded?: boolean; // Start expanded or collapsed
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+{
+  kind: 'json',
+  data: log.params,
+  expanded: true
+}
+```
+
+JSON content automatically handles nested objects and arrays, providing an interactive exploration experience.
+
+### Label
+
+Displays a label-value pair, perfect for key-value data.
+
+```ts
+interface LabelContent {
+  kind: 'label';
+  label: string;
+  value: string;
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+[
+  { kind: 'label', label: 'URL', value: request.url },
+  { kind: 'label', label: 'Method', value: request.method },
+  { kind: 'label', label: 'Status', value: response.status.toString() },
+  { kind: 'label', label: 'Duration', value: `${response.duration}ms` }
+]
+```
+
+### Loading
+
+Displays a loading indicator for pending operations.
+
+```ts
+interface LoadingContent {
+  kind: 'loading';
+  label?: string; // Optional message
+  size?: number;  // Spinner size
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+{
+  kind: 'loading',
+  label: 'The request is still pending'
+}
+```
+
+### Section
+
+Groups related content under a collapsible header.
+
+```ts
+interface SectionContent {
+  kind: 'section';
+  key: string;              // Unique identifier
+  title: string;            // Section header text
+  expanded?: boolean;       // Start expanded or collapsed
+  children: Content[];      // Content within the section
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+private provideHeadersContent(
+  headers: NetworkingHeaders | undefined,
+  suffix: string
+): SectionContent {
+  return {
+    key: `${suffix}_headers`,
+    kind: 'section',
+    title: 'Headers',
+    children: headers
+      ? Object.entries(headers).map(([key, value]) => ({
+          kind: 'label',
+          label: key,
+          value,
+        }))
+      : [
+          {
+            kind: 'text',
+            text: 'No headers',
+            variant: 'caption',
+          },
+        ],
+  };
+}
+```
+
+### Box
+
+Arranges content in a horizontal or vertical layout with flexible positioning.
+
+```ts
+interface BoxContent {
+  kind: 'box';
+  key: string;              // Unique identifier
+  direction?: 'row' | 'column';
+  justifyContent?: 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around';
+  children: Content[];
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+provideCardFooter(log: NetworkingLog): BoxContent {
+  const children: Content[] = [
+    {
+      kind: 'text',
+      text: log.host,
+      variant: 'caption',
+    },
+  ];
+
+  if (log.response) {
+    children.push({
+      kind: 'text',
+      text: `${log.response.duration}ms`,
+      variant: 'caption',
+    });
+  }
+
+  return {
+    key: 'footer',
+    kind: 'box',
+    direction: 'row',
+    justifyContent: 'space-between',
+    children,
+  };
+}
+```
+
+### List
+
+Displays a vertical list of content items.
+
+```ts
+interface ListContent {
+  kind: 'list';
+  key: string;
+  children: (Content | SectionContent)[];
+}
+```
+
+**Example from ErrorLogPlugin:**
+
+```ts
+const listItems: Content[] = [
+  { kind: 'label', label: 'Name', value: error.name },
+  { kind: 'label', label: 'Message', value: error.message },
+];
+
+if (error.stack) {
+  listItems.push({
+    kind: 'text',
+    text: 'Stack',
+    variant: 'body',
+    bold: true,
+  });
+  listItems.push({ kind: 'text', text: error.stack, selectable: true });
+}
+
+return {
+  key: 'error',
+  kind: 'list',
+  children: listItems,
+};
+```
+
+### Tab Bar
+
+Displays multiple tabs, each containing a list of content.
+
+```ts
+interface Tab {
+  title: string;
+  content: ListContent;
+}
+
+interface TabBarContent {
+  kind: 'tab-bar';
+  tabs: Tab[];
+}
+```
+
+**Example from NetworkingLogPlugin:**
+
+```ts
+provideDetailContent(log: NetworkingLog): DetailContent {
+  return {
+    kind: 'tab-bar',
+    tabs: [
+      {
+        title: 'Info',
+        content: this.provideInfoContent(log),
+      },
+      {
+        title: 'Request',
+        content: this.provideRequestContent(log.request),
+      },
+      {
+        title: 'Response',
+        content: this.provideResponseContent(log.response),
+      },
+    ],
+  };
+}
+```
+
+## When to Use Each Type
+
+<Steps>
+  <Step title="Text">
+    Use for:
+    - Simple messages
+    - Headers and titles
+    - Stack traces
+    - Any string content that needs formatting
+  </Step>
+
+  <Step title="JSON">
+    Use for:
+    - Request/response bodies
+    - Configuration objects
+    - Event parameters
+    - Any structured data
+  </Step>
+
+  <Step title="Label">
+    Use for:
+    - Key-value pairs
+    - Metadata (URL, status, duration)
+    - Object properties
+    - Configuration values
+  </Step>
+
+  <Step title="Loading">
+    Use for:
+    - Pending network requests
+    - Async operations in progress
+    - Loading states
+  </Step>
+
+  <Step title="Section">
+    Use for:
+    - Grouping related content
+    - Collapsible headers/bodies
+    - Organizing large detail views
+  </Step>
+
+  <Step title="Box">
+    Use for:
+    - Horizontal layouts (e.g., footer with left and right content)
+    - Custom spacing and alignment
+    - Flexible positioning
+  </Step>
+
+  <Step title="List">
+    Use for:
+    - Vertical content arrangement
+    - Main container for detail views
+    - Combining multiple content types
+  </Step>
+
+  <Step title="Tab Bar">
+    Use for:
+    - Multiple related views (Info, Request, Response)
+    - Organizing large amounts of data
+    - Different aspects of the same log
+  </Step>
+</Steps>
+
+## Building Detail Views: Real Examples
+
+Here are complete examples from Beagle's built-in plugins:
+
+<CodeGroup>
+  ```ts Message Plugin
+  provideDetailContent(log: MessageLog): DetailContent {
+    return {
+      key: 'message',
+      kind: 'list',
+      children: [
+        {
+          kind: 'text',
+          text: log.message,
+          selectable: true,
+        },
+      ],
+    };
+  }
+  ```
+
+  ```ts Error Plugin
+  provideDetailContent({ error, message }: ErrorLog): DetailContent {
+    if (!(error instanceof Error)) {
+      return {
+        key: 'error',
+        kind: 'list',
+        children: [
+          {
+            kind: 'text',
+            text: message,
+            selectable: true,
+          },
+        ],
+      };
+    }
+
+    const listItems: Content[] = [
+      { kind: 'label', label: 'Name', value: error.name },
+      { kind: 'label', label: 'Message', value: error.message },
+    ];
+
+    if (error.stack) {
+      listItems.push({
+        kind: 'text',
+        text: 'Stack',
+        variant: 'body',
+        bold: true,
+      });
+      listItems.push({ kind: 'text', text: error.stack, selectable: true });
+    }
+
+    if (error.cause) {
+      listItems.push({
+        kind: 'text',
+        text: 'Cause',
+        variant: 'body',
+        bold: true,
+      });
+      listItems.push({
+        kind: 'text',
+        text: error.cause?.toString() ?? '',
+        selectable: true,
+      });
+    }
+
+    return {
+      key: 'error',
+      kind: 'list',
+      children: listItems,
+    };
+  }
+  ```
+
+  ```ts Analytics Plugin
+  provideDetailContent(log: AnalyticsLog): DetailContent {
+    return {
+      key: 'analytics',
+      kind: 'list',
+      children: [
+        {
+          kind: 'label',
+          label: 'Event',
+          value: log.event,
+        },
+        { kind: 'text', text: 'Parameters', variant: 'body', bold: true },
+        {
+          kind: 'json',
+          data: log.params,
+        },
+      ],
+    };
+  }
+  ```
+</CodeGroup>
+
+## Best Practices
+
+<Tip>
+  **Combine content types** to create rich, informative views. Use sections to organize, labels for metadata, JSON for data, and text for messages.
+</Tip>
+
+<Note>
+  **Always provide a unique `key`** for `section`, `box`, `list`, and `tab-bar` content types. This ensures proper React rendering and state management.
+</Note>
+
+<Warning>
+  **Don't nest tab bars**. The `tab-bar` type should only appear at the root level of `provideDetailContent`.
+</Warning>
+
+### Content Composition Tips
+
+1. **Start with the container**: Choose between `list` (single view) or `tab-bar` (multiple views)
+2. **Group with sections**: Use sections to organize related content under collapsible headers
+3. **Label metadata first**: Put key-value pairs at the top for quick scanning
+4. **JSON for complex data**: Use JSON content for nested objects and arrays
+5. **Text for messages**: Use text content for strings, with appropriate formatting
+6. **Loading for pending**: Show loading states for async operations

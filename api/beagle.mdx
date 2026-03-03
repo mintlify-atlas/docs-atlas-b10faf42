@@ -1,0 +1,78 @@
+---
+title: 'Beagle'
+description: 'Main class for logging and plugin registration'
+---
+
+The `Beagle` class provides static methods for registering plugins and logging events throughout your application.
+
+## Methods
+
+### registerPlugin()
+
+Registers a custom plugin to handle and display specific log types.
+
+<ParamField path="plugin" type="BeagleLogPlugin<BeagleLog>" required>
+  A plugin instance that extends `BeagleLogPlugin`. The plugin determines how specific log types are handled and displayed in the inspector.
+</ParamField>
+
+```typescript
+import { Beagle, BeagleLogPlugin, BeagleLog } from 'react-native-beagle';
+
+class CustomLogPlugin extends BeagleLogPlugin<CustomLog> {
+  name = 'CustomLogPlugin';
+
+  canHandle(log: BeagleLog): log is CustomLog {
+    return log instanceof CustomLog;
+  }
+
+  provideDetailContent(log: CustomLog) {
+    return [
+      { type: 'title', value: log.message },
+      { type: 'text', value: log.details }
+    ];
+  }
+}
+
+Beagle.registerPlugin(new CustomLogPlugin());
+```
+
+### log()
+
+Logs an event that will be captured and displayed in the Beagle inspector.
+
+<ParamField path="log" type="BeagleLog" required>
+  A log instance that extends the `BeagleLog` abstract class. The log contains metadata like id, time, message, and level.
+</ParamField>
+
+```typescript
+import { Beagle, BeagleLog } from 'react-native-beagle';
+
+class MessageLog extends BeagleLog {
+  constructor(message: string) {
+    super(message, 'info');
+  }
+}
+
+Beagle.log(new MessageLog('User logged in'));
+```
+
+## Related Types
+
+### BeagleLog
+
+Abstract base class for all logs:
+
+- `id: string` - Unique identifier for the log
+- `time: Date` - Timestamp when the log was created
+- `message: string` - Log message
+- `level: LogLevel` - Log level ('loading' | 'info' | 'warning' | 'error' | 'success')
+
+### BeagleLogPlugin
+
+Abstract base class for plugins:
+
+- `name: string` - Plugin name
+- `canHandle(log: BeagleLog): boolean` - Determines if this plugin handles the log type
+- `provideDetailContent(log: T): DetailContent` - Provides content for the detail view
+- `provideCardFooter(log: T): Content | null` - Optional card footer content
+- `exportToJSON(log: T): string` - Export log to JSON format

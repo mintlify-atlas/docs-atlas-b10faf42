@@ -1,0 +1,292 @@
+---
+title: Plugin Methods
+description: Detailed explanation of BeagleLogPlugin methods and their usage patterns
+---
+
+This guide provides in-depth information about each method in the `BeagleLogPlugin` class, including usage patterns and real-world examples.
+
+## canHandle()
+
+The `canHandle()` method is a TypeScript type guard that determines whether a plugin can handle a specific log type.
+
+```typescript
+abstract canHandle(log: BeagleLog): log is T;
+```
+
+### Type Guard Pattern
+
+The return type `log is T` is a TypeScript type predicate. When this method returns `true`, TypeScript automatically narrows the type of the log parameter to `T` in subsequent code.
+
+### Implementation Pattern
+
+The typical implementation uses `instanceof` to check the log type:
+
+```typescript
+canHandle(log: BeagleLog): log is MessageLog {
+  return log instanceof MessageLog;
+}
+```
+
+### Examples
+
+**MessageLogPlugin:**
+```typescript
+canHandle(log: BeagleLog): log is MessageLog {
+  return log instanceof MessageLog;
+}
+```
+
+**ErrorLogPlugin:**
+```typescript
+canHandle(log: BeagleLog): log is ErrorLog {
+  return log instanceof ErrorLog;
+}
+```
+
+## provideDetailContent()
+
+Generates the detailed view content when a log is expanded or viewed in detail.
+
+```typescript
+abstract provideDetailContent(log: T): DetailContent;
+```
+
+### Return Type
+
+`DetailContent` can be either:
+- `ListContent` - A simple list of content items
+- `TabBarContent` - Multiple tabs, each containing a list
+
+### Content Types
+
+You can use various content types in the returned structure:
+
+- `TextContent` - Display text with optional formatting
+- `JsonContent` - Display JSON data with expand/collapse
+- `LabelContent` - Display label-value pairs
+- `SectionContent` - Collapsible sections with children
+- `LoadingContent` - Loading indicators
+
+### Examples
+
+**Simple Message Display:**
+```typescript
+provideDetailContent(log: MessageLog): DetailContent {
+  return {
+    key: 'message',
+    kind: 'list',
+    children: [
+      {
+        kind: 'text',
+        text: log.message,
+        selectable: true,
+      },
+    ],
+  };
+}
+```
+
+**Error with Stack Trace:**
+```typescript
+provideDetailContent({ error, message }: ErrorLog): DetailContent {
+  if (!(error instanceof Error)) {
+    return {
+      key: 'error',
+      kind: 'list',
+      children: [
+        {
+          kind: 'text',
+          text: message,
+          selectable: true,
+        },
+      ],
+    };
+  }
+
+  const listItems: Content[] = [
+    { kind: 'label', label: 'Name', value: error.name },
+    { kind: 'label', label: 'Message', value: error.message },
+  ];
+
+  if (error.stack) {
+    listItems.push({
+      kind: 'text',
+      text: 'Stack',
+      variant: 'body',
+      bold: true,
+    });
+    listItems.push({ 
+      kind: 'text', 
+      text: error.stack, 
+      selectable: true 
+    });
+  }
+
+  if (error.cause) {
+    listItems.push({
+      kind: 'text',
+      text: 'Cause',
+      variant: 'body',
+      bold: true,
+    });
+    listItems.push({
+      kind: 'text',
+      text: error.cause?.toString() ?? '',
+      selectable: true,
+    });
+  }
+
+  return {
+    key: 'error',
+    kind: 'list',
+    children: listItems,
+  };
+}
+```
+
+## provideCardFooter()
+
+Provides optional footer content displayed on the log card in the list view.
+
+```typescript
+provideCardFooter(_: T): Content | BoxContent | null;
+```
+
+### Default Behavior
+
+The default implementation returns `null`, meaning no footer is displayed.
+
+### Use Cases
+
+- Display preview text (e.g., first few lines of stack trace)
+- Show metadata or additional context
+- Display status indicators or badges
+
+### Example
+
+**Error Stack Preview:**
+```typescript
+provideCardFooter(log: ErrorLog): Content | BoxContent | null {
+  if (!(log.error instanceof Error)) {
+    return null;
+  }
+
+  return {
+    kind: 'text',
+    text: log.error.stack ?? '',
+    variant: 'caption',
+    lines: 2,  // Truncate to 2 lines
+  };
+}
+```
+
+**No Footer (Default):**
+```typescript
+provideCardFooter(_: MessageLog): Content | BoxContent | null {
+  return null;
+}
+```
+
+## exportToJSON()
+
+Customizes how logs are exported to JSON format.
+
+```typescript
+exportToJSON(log: T): string;
+```
+
+### Default Behavior
+
+The default implementation uses `JSON.stringify()` to serialize the entire log object:
+
+```typescript
+exportToJSON(log: T): string {
+  return JSON.stringify(log);
+}
+```
+
+### Use Cases
+
+- Filter sensitive information before export
+- Format data for external tools
+- Include additional metadata
+- Transform nested objects
+
+### Custom Implementation Example
+
+```typescript
+exportToJSON(log: ErrorLog): string {
+  return JSON.stringify({
+    timestamp: log.timestamp,
+    message: log.message,
+    error: {
+      name: log.error.name,
+      message: log.error.message,
+      stack: log.error.stack,
+    },
+    // Exclude internal properties
+  }, null, 2);
+}
+```
+
+## Best Practices
+
+### Type Safety
+
+Always use the type parameter `T` to ensure type safety:
+
+```typescript
+class MyPlugin extends BeagleLogPlugin<MyLogType> {
+  // T is automatically MyLogType in all methods
+  provideDetailContent(log: MyLogType): DetailContent {
+    // log is properly typed
+  }
+}
+```
+
+### Content Reusability
+
+Extract common content patterns into helper functions:
+
+```typescript
+class MyPlugin extends BeagleLogPlugin<MyLog> {
+  private createStackSection(stack: string): SectionContent {
+    return {
+      key: 'stack',
+      kind: 'section',
+      title: 'Stack Trace',
+      children: [{
+        kind: 'text',
+        text: stack,
+        selectable: true,
+      }],
+    };
+  }
+
+  provideDetailContent(log: MyLog): DetailContent {
+    return {
+      key: 'details',
+      kind: 'list',
+      children: [this.createStackSection(log.stack)],
+    };
+  }
+}
+```
+
+### Selectable Content
+
+Make text content selectable when users might want to copy it:
+
+```typescript
+{
+  kind: 'text',
+  text: errorMessage,
+  selectable: true,  // Users can copy this text
+}
+```
+
+## See Also
+
+- [BeagleLogPlugin](/api/beagle-log-plugin) - Abstract class reference
+- [Content Types](/api/content-types) - Available content structures
+- [Creating Custom Plugins](/guides/custom-plugins) - Step-by-step guide

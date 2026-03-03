@@ -1,0 +1,289 @@
+---
+title: Theming Guide
+description: Customize Beagle's appearance with light and dark themes to match your app's design
+---
+
+Beagle supports both light and dark themes out of the box. You can configure the theme mode when setting up the `BeagleProvider`.
+
+## Theme Modes
+
+Beagle supports two theme modes:
+
+```ts
+export type ThemeMode = 'light' | 'dark';
+```
+
+- **Light**: Optimized for bright environments with light backgrounds
+- **Dark**: Optimized for low-light environments with dark backgrounds
+
+## Setting the Theme
+
+Configure the theme using the `theme` prop on `BeagleProvider`:
+
+<CodeGroup>
+  ```tsx Light Theme
+  import { BeagleProvider } from 'react-native-beagle';
+
+  export default function App() {
+    return (
+      <BeagleProvider theme="light">
+        {/* Your app components */}
+      </BeagleProvider>
+    );
+  }
+  ```
+
+  ```tsx Dark Theme
+  import { BeagleProvider } from 'react-native-beagle';
+
+  export default function App() {
+    return (
+      <BeagleProvider theme="dark">
+        {/* Your app components */}
+      </BeagleProvider>
+    );
+  }
+  ```
+
+  ```tsx Dynamic Theme
+  import { useColorScheme } from 'react-native';
+  import { BeagleProvider } from 'react-native-beagle';
+
+  export default function App() {
+    const colorScheme = useColorScheme();
+
+    return (
+      <BeagleProvider theme={colorScheme === 'dark' ? 'dark' : 'light'}>
+        {/* Your app components */}
+      </BeagleProvider>
+    );
+  }
+  ```
+</CodeGroup>
+
+## BeagleProvider Props
+
+The `BeagleProvider` component accepts the following props:
+
+```ts
+export interface BeagleProviderProps {
+  enabled?: boolean;          // Enable/disable Beagle (default: true)
+  copy?: CopyAction;          // Custom clipboard function
+  theme?: ThemeMode;          // 'light' or 'dark' (default: 'light')
+  children: React.ReactElement;
+}
+```
+
+<Note>
+  If you don't specify a theme, Beagle defaults to `'light'` mode.
+</Note>
+
+## Theme Structure
+
+Beagle's theme system includes colors for all UI elements:
+
+### Light Theme Colors
+
+```ts
+export const lightTheme = {
+  colors: {
+    background: '#ededed',
+    header: '#f9f9f9',
+    primary: '#000000',
+    secondary: '#666666',
+    accent: '#007bff',
+    onAccent: '#ffffff',
+    card: {
+      header: '#e2e2e2',
+      background: '#ffffff',
+    },
+    search: {
+      background: '#e4e4e4',
+      input: '#000000',
+      placeholder: '#b0b0b0',
+    },
+    json: {
+      key: 'deepskyblue',
+      value: 'lightcoral',
+      type: 'lightgray',
+    },
+    divider: '#e0e0e0',
+    success: '#81C784',
+    onSuccess: '#ffffff',
+    error: '#EF5350',
+    onError: '#ffffff',
+    warning: '#FFEE58',
+    onWarning: '#000000',
+    info: 'lightgray',
+    onInfo: '#000000',
+    overlay: 'rgba(0, 0, 0, 0.4)',
+  },
+  fonts: {
+    mono: Platform.select({ ios: 'Menlo', android: 'monospace' }),
+  },
+};
+```
+
+### Dark Theme Colors
+
+```ts
+const darkTheme: Theme = {
+  colors: {
+    background: '#000000',
+    header: '#121212',
+    primary: '#ffffff',
+    secondary: '#b0b0b0',
+    card: {
+      header: '#232223',
+      background: '#2d2d2d',
+    },
+    search: {
+      background: '#2a2a2a',
+      input: '#ffffff',
+      placeholder: '#666666',
+    },
+    json: {
+      type: 'gray',
+    },
+    divider: '#333333',
+    overlay: 'rgba(0, 0, 0, 0.6)',
+  },
+};
+```
+
+<Note>
+  The dark theme only overrides specific colors. Unspecified colors fall back to the light theme values.
+</Note>
+
+## Color Categories
+
+Beagle's theme colors are organized into logical categories:
+
+<Tabs>
+  <Tab title="Layout Colors">
+    - `background`: Main app background
+    - `header`: Header background
+    - `divider`: Border and divider lines
+    - `overlay`: Modal overlay background
+  </Tab>
+
+  <Tab title="Text Colors">
+    - `primary`: Primary text color
+    - `secondary`: Secondary/muted text color
+  </Tab>
+
+  <Tab title="Interactive Colors">
+    - `accent`: Accent color for buttons and links
+    - `onAccent`: Text color on accent backgrounds
+  </Tab>
+
+  <Tab title="Card Colors">
+    - `card.header`: Card header background
+    - `card.background`: Card content background
+  </Tab>
+
+  <Tab title="Search Colors">
+    - `search.background`: Search bar background
+    - `search.input`: Search input text color
+    - `search.placeholder`: Placeholder text color
+  </Tab>
+
+  <Tab title="JSON Colors">
+    - `json.key`: JSON object key color
+    - `json.value`: JSON value color
+    - `json.type`: JSON type annotation color
+  </Tab>
+
+  <Tab title="Status Colors">
+    - `success` / `onSuccess`: Success state colors
+    - `error` / `onError`: Error state colors
+    - `warning` / `onWarning`: Warning state colors
+    - `info` / `onInfo`: Info state colors
+  </Tab>
+</Tabs>
+
+## Dynamic Theme Switching
+
+You can dynamically switch themes based on the device's color scheme:
+
+```tsx
+import { useColorScheme } from 'react-native';
+import { BeagleProvider } from 'react-native-beagle';
+
+export default function App() {
+  const colorScheme = useColorScheme();
+  
+  return (
+    <BeagleProvider theme={colorScheme === 'dark' ? 'dark' : 'light'}>
+      {/* Your app */}
+    </BeagleProvider>
+  );
+}
+```
+
+This automatically follows the user's system preference for light or dark mode.
+
+## Complete Example
+
+Here's a complete setup with theme configuration:
+
+```tsx
+import { useState, useEffect } from 'react';
+import { useColorScheme, Switch, View, Text } from 'react-native';
+import { BeagleProvider, useBeagle } from 'react-native-beagle';
+
+function ThemeToggle() {
+  const systemScheme = useColorScheme();
+  const [manualTheme, setManualTheme] = useState<'light' | 'dark' | null>(null);
+  
+  const effectiveTheme = manualTheme ?? (systemScheme === 'dark' ? 'dark' : 'light');
+  
+  return (
+    <View>
+      <Text>Theme: {effectiveTheme}</Text>
+      <Switch
+        value={effectiveTheme === 'dark'}
+        onValueChange={(dark) => setManualTheme(dark ? 'dark' : 'light')}
+      />
+    </View>
+  );
+}
+
+export default function App() {
+  const colorScheme = useColorScheme();
+  const [theme, setTheme] = useState(colorScheme === 'dark' ? 'dark' : 'light');
+  
+  useEffect(() => {
+    // Update theme when system preference changes
+    setTheme(colorScheme === 'dark' ? 'dark' : 'light');
+  }, [colorScheme]);
+  
+  return (
+    <BeagleProvider theme={theme}>
+      <ThemeToggle />
+      {/* Your app components */}
+    </BeagleProvider>
+  );
+}
+```
+
+<Tip>
+  The theme you choose for Beagle doesn't affect your app's theme. Beagle maintains its own theme context.
+</Tip>
+
+## Theme Context
+
+Beagle uses a `ThemeContext` internally to provide theme values to all components:
+
+```ts
+export interface ThemeProviderProps {
+  mode: ThemeMode;
+  children: React.ReactElement;
+}
+```
+
+You don't need to interact with `ThemeContext` directly—just set the `theme` prop on `BeagleProvider`, and all Beagle components will automatically use the appropriate colors.
+
+<Warning>
+  Currently, Beagle themes are not customizable beyond choosing between light and dark modes. Custom theme colors may be supported in a future release.
+</Warning>

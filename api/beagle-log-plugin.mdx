@@ -1,0 +1,124 @@
+---
+title: BeagleLogPlugin
+description: Abstract base class for creating custom log plugins in React Native Beagle
+---
+
+`BeagleLogPlugin` is an abstract class that serves as the foundation for creating custom log plugins. Plugins determine how different types of logs are displayed and handled in the Beagle interface.
+
+## Type Parameters
+
+<ParamField path="T" type="extends BeagleLog">
+  The specific log type this plugin handles. Must extend `BeagleLog`.
+</ParamField>
+
+## Properties
+
+<ResponseField name="name" type="string" required>
+  The unique identifier for the plugin. This name is used to identify the plugin type throughout the system.
+</ResponseField>
+
+## Abstract Methods
+
+These methods must be implemented by all plugin subclasses.
+
+### canHandle()
+
+```typescript
+abstract canHandle(log: BeagleLog): log is T;
+```
+
+Type guard that determines whether this plugin can handle a given log.
+
+<ParamField path="log" type="BeagleLog">
+  The log to check
+</ParamField>
+
+<ResponseField name="returns" type="log is T">
+  TypeScript type predicate that narrows the log type to `T` if the plugin can handle it
+</ResponseField>
+
+### provideDetailContent()
+
+```typescript
+abstract provideDetailContent(log: T): DetailContent;
+```
+
+Generates the detailed content view for a log entry.
+
+<ParamField path="log" type="T">
+  The log to generate content for
+</ParamField>
+
+<ResponseField name="returns" type="DetailContent">
+  The detail content structure, either `ListContent` or `TabBarContent`
+</ResponseField>
+
+## Optional Methods
+
+These methods have default implementations but can be overridden.
+
+### provideCardFooter()
+
+```typescript
+provideCardFooter(_: T): Content | BoxContent | null;
+```
+
+Provides optional footer content for the log card in the list view.
+
+<ParamField path="log" type="T">
+  The log to generate footer content for
+</ParamField>
+
+<ResponseField name="returns" type="Content | BoxContent | null" default="null">
+  Footer content to display, or `null` for no footer
+</ResponseField>
+
+### exportToJSON()
+
+```typescript
+exportToJSON(log: T): string;
+```
+
+Customizes how the log is exported to JSON format.
+
+<ParamField path="log" type="T">
+  The log to export
+</ParamField>
+
+<ResponseField name="returns" type="string" default="JSON.stringify(log)">
+  JSON string representation of the log
+</ResponseField>
+
+## Example
+
+```typescript
+import { BeagleLogPlugin } from 'react-native-beagle';
+import type { DetailContent } from 'react-native-beagle';
+
+class MessageLogPlugin extends BeagleLogPlugin<MessageLog> {
+  name: string = 'Message';
+
+  canHandle(log: BeagleLog): log is MessageLog {
+    return log instanceof MessageLog;
+  }
+
+  provideDetailContent(log: MessageLog): DetailContent {
+    return {
+      key: 'message',
+      kind: 'list',
+      children: [
+        {
+          kind: 'text',
+          text: log.message,
+          selectable: true,
+        },
+      ],
+    };
+  }
+}
+```
+
+## See Also
+
+- [Plugin Methods](/api/plugin-methods) - Detailed explanation of plugin methods
+- [Creating Custom Plugins](/guides/custom-plugins) - Guide to building custom plugins

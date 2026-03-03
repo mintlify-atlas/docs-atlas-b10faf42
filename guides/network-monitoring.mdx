@@ -1,0 +1,279 @@
+---
+title: Network Monitoring
+description: Automatically track and inspect all network requests and responses in your React Native app
+---
+
+Beagle automatically monitors all network requests made through React Native's networking layer, providing detailed insights into each request and response.
+
+## How Automatic Network Logging Works
+
+Beagle uses React Native's `XHRInterceptor` to intercept network requests without requiring any changes to your existing code. The `NetworkingMonitor` class handles the interception:
+
+```ts
+export class NetworkingMonitor {
+  startMonitoring(): this {
+    XHRInterceptor.enableInterception();
+    
+    // Capture request details
+    XHRInterceptor.setOpenCallback((method, url, xhr) => {
+      const id = nanoid(6);
+      xhr._appLoggerId = id;
+      xhr._appLoggerStart = new Date();
+      this._pendingRequests.set(id, {
+        url,
+        method,
+      });
+    });
+    
+    // Capture request headers
+    XHRInterceptor.setRequestHeaderCallback((header, value, xhr) => {
+      const id = xhr._appLoggerId;
+      if (!id) return;
+      const request = this._pendingRequests.get(id);
+      if (!request) return;
+      request.headers = {
+        ...request.headers,
+        [header]: value,
+      };
+    });
+    
+    // Capture request body
+    XHRInterceptor.setSendCallback((data, xhr) => {
+      const id = xhr._appLoggerId;
+      if (!id) return;
+      const request = this._pendingRequests.get(id);
+      if (!request) return;
+      request.body = this.parseData(data);
+      this.onRequestCallback?.({ request, id });
+    });
+    
+    // Capture response
+    XHRInterceptor.setResponseCallback(
+      async (status, _, body, __, responseType, xhr) => {
+        const id = xhr._appLoggerId;
+        const start = xhr._appLoggerStart;
+        if (!id || !start) return;
+
+        const pendingRequest = this._pendingRequests.get(id);
+        if (!pendingRequest) return;
+        const duration = new Date().getTime() - start.getTime();
+
+        // Handle errors
+        if (status < 100) {
+          this.onResponseCallback?.({
+            response: {
+              kind: 'error',
+              status,
+              error: xhr._response ?? 'Request was aborted',
+              duration,
+            },
+            request: pendingRequest,
+            id,
+          });
+          return;
+        }
+
+        // Handle successful response
+        const response = {
+          kind: 'data',
+          status,
+          headers: pendingResponse.headers,
+          body: await this.getResponseBody(responseType, body),
+          duration,
+        };
+
+        this.onResponseCallback?.({ response, request: pendingRequest, id });
+      }
+    );
+    
+    return this;
+  }
+}
+```
+
+## NetworkingLog Structure
+
+Each network request creates a `NetworkingLog` entry with the following structure:
+
+- **Request**: URL, HTTP method, headers, and body
+- **Response**: Status code, headers, body, and duration
+- **Host**: Extracted from the URL for easy filtering
+- **Duration**: Time taken for the request in milliseconds
+
+## Viewing Request/Response Details
+
+The Beagle inspector displays network logs with a three-tab interface:
+
+<Tabs>
+  <Tab title="Info Tab">
+    The Info tab provides a quick overview:
+
+    - **URL**: Full request URL
+    - **Method**: HTTP method (GET, POST, PUT, DELETE, etc.)
+    - **Status**: HTTP status code or "Loading" for pending requests
+    - **Duration**: Request duration in milliseconds
+
+    ```ts
+    private provideInfoContent({
+      request,
+      response,
+    }: NetworkingLog): ListContent {
+      return {
+        key: 'info',
+        kind: 'list',
+        children: [
+          { kind: 'label', label: 'URL', value: request.url },
+          { kind: 'label', label: 'Method', value: request.method },
+          {
+            kind: 'label',
+            label: 'Status',
+            value: response ? response.status.toString() : 'Loading',
+          },
+          {
+            kind: 'label',
+            label: 'Duration',
+            value: response ? `${response.duration}ms` : 'Loading',
+          },
+        ],
+      };
+    }
+    ```
+  </Tab>
+
+  <Tab title="Request Tab">
+    The Request tab shows everything sent to the server:
+
+    - **Headers**: All request headers in a collapsible section
+    - **Body**: Request payload formatted as JSON
+
+    ```ts
+    private provideRequestContent(request: NetworkingRequest): ListContent {
+      return {
+        key: 'request',
+        kind: 'list',
+        children: [
+          this.provideHeadersContent(request.headers, 'request'),
+          this.provideBodyContent(request.body, true),
+        ],
+      };
+    }
+    ```
+  </Tab>
+
+  <Tab title="Response Tab">
+    The Response tab displays the server's response:
+
+    - **Headers**: All response headers in a collapsible section
+    - **Body**: Response data formatted as JSON
+    - **Error**: Error message if the request failed
+    - **Loading**: Indicator for pending requests
+
+    ```ts
+    private provideResponseContent(response?: NetworkingResponse): ListContent {
+      return {
+        key: 'response',
+        kind: 'list',
+        children: response
+          ? response.kind === 'data'
+            ? [
+                this.provideHeadersContent(response.headers, 'response'),
+                this.provideBodyContent(response.body),
+              ]
+            : [
+                {
+                  kind: 'text',
+                  text: response.error,
+                },
+              ]
+          : [
+              {
+                kind: 'loading',
+                label: 'The request is still pending',
+              },
+            ],
+      };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Network Log Card Footer
+
+In the log list view, each network request displays a compact footer with key information:
+
+```ts
+provideCardFooter(log: NetworkingLog): BoxContent {
+  const children: Content[] = [
+    {
+      kind: 'text',
+      text: log.host,
+      variant: 'caption',
+    },
+  ];
+
+  if (log.response) {
+    children.push({
+      kind: 'text',
+      text: `${log.response.duration}ms`,
+      variant: 'caption',
+    });
+  }
+
+  return {
+    key: 'footer',
+    kind: 'box',
+    direction: 'row',
+    justifyContent: 'space-between',
+    children,
+  };
+}
+```
+
+This displays the host and duration in a horizontal layout, making it easy to scan through multiple requests.
+
+## Features
+
+<Note>
+  Network monitoring is enabled automatically when you wrap your app with `BeagleProvider`. No additional configuration is required.
+</Note>
+
+### Automatic Request Tracking
+
+- Captures all XMLHttpRequest and fetch requests
+- Records request timing automatically
+- Tracks pending requests until completion
+
+### Rich Data Display
+
+- JSON bodies are parsed and displayed in an interactive tree view
+- Headers are organized in collapsible sections
+- FormData and multipart requests are properly parsed
+
+### Error Handling
+
+```ts
+if (status < 100) {
+  this._pendingRequests.delete(id);
+  this.onResponseCallback?.({
+    response: {
+      kind: 'error',
+      status,
+      error: xhr._response ?? 'Request was aborted',
+      duration,
+    },
+    request: pendingRequest,
+    id,
+  });
+  return;
+}
+```
+
+Failed requests are clearly marked with error status and messages.
+
+<Tip>
+  Click on any network log in the Beagle inspector to see full request and response details. Use the search bar to filter by URL or host.
+</Tip>
+
+## Export Network Logs
+
+You can export network logs for sharing or further analysis. Each log can be exported as JSON with complete request and response data.

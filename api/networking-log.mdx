@@ -1,0 +1,206 @@
+---
+title: NetworkingLog
+description: Log class for HTTP requests and responses in React Native Beagle
+---
+
+`NetworkingLog` extends `BeagleLog` to provide specialized handling for network requests and responses. It automatically tracks request details, response status, and sets appropriate log levels based on HTTP status codes.
+
+## Properties
+
+Inherits all properties from [`BeagleLog`](/api/beagle-log), plus:
+
+<ResponseField name="url" type="string" required>
+  The full URL of the network request.
+</ResponseField>
+
+<ResponseField name="host" type="string" required>
+  The hostname extracted from the URL (e.g., `api.example.com`).
+</ResponseField>
+
+<ResponseField name="request" type="NetworkingRequest" required>
+  The request details including method, URL, headers, and body.
+</ResponseField>
+
+<ResponseField name="response" type="NetworkingResponse">
+  Optional response details. Present when the request has completed.
+</ResponseField>
+
+## Constructor
+
+<ParamField path="request" type="NetworkingRequest" required>
+  The network request object containing URL, method, headers, and body.
+</ParamField>
+
+<ParamField path="response" type="NetworkingResponse">
+  Optional response object. If provided, determines the log level based on status code.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional custom ID for the log entry.
+</ParamField>
+
+**Behavior:**
+- Extracts host and path from the request URL
+- Sets message to `{METHOD} {path}` (e.g., `GET /api/users`)
+- If response is provided:
+  - Sets level to `'error'` for status >= 400 or kind === 'error'
+  - Sets level to `'warning'` for status 300-399
+  - Sets level to `'success'` for status < 300
+- If no response, sets level to `'loading'`
+
+## Methods
+
+### filter()
+
+Overrides the base `filter()` method to search both message and host.
+
+<ParamField path="query" type="string" required>
+  The search query to filter by.
+</ParamField>
+
+**Returns:** `boolean` - `true` if the query matches the message or host (case-insensitive).
+
+## Type Definitions
+
+### NetworkingRequest
+
+```typescript
+interface NetworkingRequest {
+  url: string;
+  method: string;
+  headers?: NetworkingHeaders;
+  body?: any;
+}
+```
+
+### NetworkingResponse
+
+```typescript
+type NetworkingResponse = NetworkingResponseData | NetworkingResponseError;
+
+interface NetworkingResponseData {
+  kind: 'data';
+  status: number;
+  headers: NetworkingHeaders;
+  body: any;
+  duration: number;
+}
+
+interface NetworkingResponseError {
+  kind: 'error';
+  status: number;
+  error: string;
+  duration: number;
+}
+```
+
+### NetworkingHeaders
+
+```typescript
+type NetworkingHeaders = Record<string, string>;
+```
+
+## How It's Used Automatically
+
+When you enable the Networking plugin, React Native Beagle automatically intercepts network requests and creates `NetworkingLog` entries:
+
+1. **Request starts**: A log is created with `'loading'` level
+2. **Response received**: The log is updated with response data and appropriate level
+3. **Error occurs**: The log level becomes `'error'`
+
+You typically don't need to create `NetworkingLog` instances manually.
+
+## Usage Examples
+
+### Manual Request Logging
+
+```typescript
+import { NetworkingLog } from 'react-native-beagle';
+
+const request = {
+  url: 'https://api.example.com/users',
+  method: 'GET',
+  headers: { 'Authorization': 'Bearer token' }
+};
+
+// Log the request (loading state)
+const log = new NetworkingLog(request);
+// log.message: "GET /users"
+// log.level: "loading"
+// log.host: "api.example.com"
+```
+
+### With Successful Response
+
+```typescript
+const request = {
+  url: 'https://api.example.com/users',
+  method: 'POST',
+  body: { name: 'John' }
+};
+
+const response = {
+  kind: 'data' as const,
+  status: 201,
+  headers: { 'content-type': 'application/json' },
+  body: { id: 1, name: 'John' },
+  duration: 234
+};
+
+const log = new NetworkingLog(request, response);
+// log.message: "POST /users"
+// log.level: "success"
+// log.response.body: { id: 1, name: 'John' }
+```
+
+### With Error Response
+
+```typescript
+const request = {
+  url: 'https://api.example.com/users/999',
+  method: 'GET'
+};
+
+const response = {
+  kind: 'error' as const,
+  status: 404,
+  error: 'User not found',
+  duration: 123
+};
+
+const log = new NetworkingLog(request, response);
+// log.message: "GET /users/999"
+// log.level: "error"
+```
+
+### Filtering Network Logs
+
+```typescript
+const log = new NetworkingLog({
+  url: 'https://api.github.com/repos',
+  method: 'GET'
+});
+
+log.filter('github'); // true (matches host)
+log.filter('repos'); // true (matches path)
+log.filter('POST'); // false
+```
+
+## Class Definition
+
+```typescript
+class NetworkingLog extends BeagleLog {
+  url: string;
+  host: string;
+  request: NetworkingRequest;
+  response?: NetworkingResponse;
+
+  constructor(
+    request: NetworkingRequest,
+    response?: NetworkingResponse,
+    id?: string
+  );
+  
+  filter(query: string): boolean;
+}
+```

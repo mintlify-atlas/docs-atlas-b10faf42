@@ -1,0 +1,91 @@
+---
+title: ErrorLog
+description: Log class for capturing and displaying errors in React Native Beagle
+---
+
+`ErrorLog` extends `BeagleLog` to provide specialized handling for JavaScript errors and exceptions. It automatically sets the log level to `'error'` and extracts error messages.
+
+## Properties
+
+Inherits all properties from [`BeagleLog`](/api/beagle-log), plus:
+
+<ResponseField name="error" type="unknown" required>
+  The original error object or value that was logged. Can be an `Error` instance, string, or any other value.
+</ResponseField>
+
+## Constructor
+
+<ParamField path="error" type="unknown" required>
+  The error to log. Can be an `Error` object, string, or any other value.
+</ParamField>
+
+**Behavior:**
+- If `error` is an `Error` instance, uses `error.message` as the log message
+- Otherwise, converts the error to a string using `String(error)`
+- Automatically sets `level` to `'error'`
+- Stores the original error in the `error` property
+
+## Usage Examples
+
+### Logging an Error Object
+
+```typescript
+import { ErrorLog } from 'react-native-beagle';
+
+try {
+  throw new Error('Failed to fetch user data');
+} catch (error) {
+  const log = new ErrorLog(error);
+  // log.message: "Failed to fetch user data"
+  // log.level: "error"
+  // log.error: Error object
+}
+```
+
+### Logging a String Error
+
+```typescript
+const log = new ErrorLog('Connection timeout');
+// log.message: "Connection timeout"
+// log.level: "error"
+```
+
+### Logging Custom Error Types
+
+```typescript
+class ValidationError extends Error {
+  constructor(public field: string, message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+const validationError = new ValidationError('email', 'Invalid email format');
+const log = new ErrorLog(validationError);
+// log.message: "Invalid email format"
+// log.error: ValidationError instance with field property
+```
+
+### Accessing the Original Error
+
+```typescript
+try {
+  JSON.parse('invalid json');
+} catch (error) {
+  const log = new ErrorLog(error);
+  
+  if (log.error instanceof SyntaxError) {
+    console.log('JSON parsing failed');
+  }
+}
+```
+
+## Type Definition
+
+```typescript
+class ErrorLog extends BeagleLog {
+  error: unknown;
+
+  constructor(error: unknown);
+}
+```

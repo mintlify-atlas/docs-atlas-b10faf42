@@ -1,0 +1,330 @@
+---
+title: "Content Types"
+description: "Type definitions for representing content in React Native Beagle detail views"
+---
+
+The content type system provides a flexible way to define structured content for detail views in React Native Beagle. Each content type has a unique `kind` field that identifies its type.
+
+## Core Content Types
+
+<Accordion title="TextContent">
+Displays plain or formatted text.
+
+<ResponseField name="kind" type="'text'" required>
+  Identifies this as a text content type.
+</ResponseField>
+
+<ResponseField name="text" type="string" required>
+  The text content to display.
+</ResponseField>
+
+<ResponseField name="variant" type="TypographyVariant">
+  Typography variant for styling the text.
+</ResponseField>
+
+<ResponseField name="bold" type="boolean">
+  Whether to render the text in bold.
+</ResponseField>
+
+<ResponseField name="selectable" type="boolean">
+  Whether the text can be selected by the user.
+</ResponseField>
+
+<ResponseField name="lines" type="number">
+  Maximum number of lines to display before truncating.
+</ResponseField>
+</Accordion>
+
+<Accordion title="JsonContent">
+Displays JSON data in a formatted, expandable view.
+
+<ResponseField name="kind" type="'json'" required>
+  Identifies this as a JSON content type.
+</ResponseField>
+
+<ResponseField name="data" type="Record<string, any>" required>
+  The JSON data object to display.
+</ResponseField>
+
+<ResponseField name="expanded" type="boolean">
+  Whether the JSON view should be expanded by default.
+</ResponseField>
+</Accordion>
+
+<Accordion title="LabelContent">
+Displays a label-value pair.
+
+<ResponseField name="kind" type="'label'" required>
+  Identifies this as a label content type.
+</ResponseField>
+
+<ResponseField name="label" type="string" required>
+  The label text (typically shown on the left).
+</ResponseField>
+
+<ResponseField name="value" type="string" required>
+  The value text (typically shown on the right).
+</ResponseField>
+</Accordion>
+
+<Accordion title="LoadingContent">
+Displays a loading indicator with optional label.
+
+<ResponseField name="kind" type="'loading'" required>
+  Identifies this as a loading content type.
+</ResponseField>
+
+<ResponseField name="label" type="string">
+  Optional text to display alongside the loading indicator.
+</ResponseField>
+
+<ResponseField name="size" type="number">
+  Size of the loading indicator in pixels.
+</ResponseField>
+</Accordion>
+
+## Layout Content Types
+
+<Accordion title="SectionContent">
+Groups content under an expandable section with a title.
+
+<ResponseField name="kind" type="'section'" required>
+  Identifies this as a section content type.
+</ResponseField>
+
+<ResponseField name="key" type="string" required>
+  Unique identifier for this section.
+</ResponseField>
+
+<ResponseField name="title" type="string" required>
+  The section header title.
+</ResponseField>
+
+<ResponseField name="expanded" type="boolean">
+  Whether the section should be expanded by default.
+</ResponseField>
+
+<ResponseField name="children" type="Content[]" required>
+  Array of content items within this section.
+</ResponseField>
+</Accordion>
+
+<Accordion title="BoxContent">
+Container for laying out content in rows or columns.
+
+<ResponseField name="kind" type="'box'" required>
+  Identifies this as a box content type.
+</ResponseField>
+
+<ResponseField name="key" type="string" required>
+  Unique identifier for this box.
+</ResponseField>
+
+<ResponseField name="direction" type="'row' | 'column'">
+  Layout direction for children (defaults to column).
+</ResponseField>
+
+<ResponseField name="justifyContent" type="'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around'">
+  How to distribute space along the main axis.
+</ResponseField>
+
+<ResponseField name="children" type="Content[]" required>
+  Array of content items within this box.
+</ResponseField>
+</Accordion>
+
+<Accordion title="ListContent">
+Container for a list of content items, optionally including sections.
+
+<ResponseField name="kind" type="'list'" required>
+  Identifies this as a list content type.
+</ResponseField>
+
+<ResponseField name="key" type="string" required>
+  Unique identifier for this list.
+</ResponseField>
+
+<ResponseField name="children" type="(Content | SectionContent)[]" required>
+  Array of content items or sections within this list.
+</ResponseField>
+</Accordion>
+
+## Tab Navigation Types
+
+<Accordion title="Tab">
+Defines a single tab with its content.
+
+<ResponseField name="title" type="string" required>
+  The tab label displayed in the tab bar.
+</ResponseField>
+
+<ResponseField name="content" type="ListContent" required>
+  The content to display when this tab is active.
+</ResponseField>
+</Accordion>
+
+<Accordion title="TabBarContent">
+Creates a tabbed interface with multiple tabs.
+
+<ResponseField name="kind" type="'tab-bar'" required>
+  Identifies this as a tab bar content type.
+</ResponseField>
+
+<ResponseField name="tabs" type="Tab[]" required>
+  Array of tabs to display in the tab bar.
+</ResponseField>
+</Accordion>
+
+## Union Types
+
+### Content
+
+The base union type for simple content items:
+
+```typescript
+type Content = TextContent | JsonContent | LabelContent | LoadingContent;
+```
+
+### DetailContent
+
+Union type for top-level detail view content:
+
+```typescript
+type DetailContent = ListContent | TabBarContent;
+```
+
+This type represents the root content that can be returned from detail providers. It supports either a simple list or a tabbed interface.
+
+## Type Relationships
+
+```
+DetailContent
+├── ListContent
+│   └── children: (Content | SectionContent)[]
+│       ├── Content (TextContent | JsonContent | LabelContent | LoadingContent)
+│       └── SectionContent
+│           └── children: Content[]
+└── TabBarContent
+    └── tabs: Tab[]
+        └── content: ListContent
+```
+
+## Example Usage
+
+<CodeGroup>
+```typescript Simple List
+import { ListContent, TextContent, LabelContent } from 'react-native-beagle';
+
+const detailContent: ListContent = {
+  kind: 'list',
+  key: 'user-details',
+  children: [
+    {
+      kind: 'text',
+      text: 'User Information',
+      variant: 'h2',
+      bold: true
+    },
+    {
+      kind: 'label',
+      label: 'Name',
+      value: 'John Doe'
+    },
+    {
+      kind: 'label',
+      label: 'Email',
+      value: 'john@example.com'
+    }
+  ]
+};
+```
+
+```typescript Sectioned List
+import { ListContent, SectionContent } from 'react-native-beagle';
+
+const detailContent: ListContent = {
+  kind: 'list',
+  key: 'profile',
+  children: [
+    {
+      kind: 'section',
+      key: 'personal',
+      title: 'Personal Information',
+      expanded: true,
+      children: [
+        { kind: 'label', label: 'Name', value: 'John Doe' },
+        { kind: 'label', label: 'Age', value: '30' }
+      ]
+    },
+    {
+      kind: 'section',
+      key: 'contact',
+      title: 'Contact Details',
+      expanded: false,
+      children: [
+        { kind: 'label', label: 'Email', value: 'john@example.com' },
+        { kind: 'label', label: 'Phone', value: '+1234567890' }
+      ]
+    }
+  ]
+};
+```
+
+```typescript Tabbed Content
+import { TabBarContent } from 'react-native-beagle';
+
+const detailContent: TabBarContent = {
+  kind: 'tab-bar',
+  tabs: [
+    {
+      title: 'Overview',
+      content: {
+        kind: 'list',
+        key: 'overview-list',
+        children: [
+          { kind: 'text', text: 'Summary information' }
+        ]
+      }
+    },
+    {
+      title: 'Details',
+      content: {
+        kind: 'list',
+        key: 'details-list',
+        children: [
+          { kind: 'label', label: 'Status', value: 'Active' }
+        ]
+      }
+    }
+  ]
+};
+```
+
+```typescript JSON Data
+import { ListContent, JsonContent } from 'react-native-beagle';
+
+const detailContent: ListContent = {
+  kind: 'list',
+  key: 'api-response',
+  children: [
+    {
+      kind: 'text',
+      text: 'API Response',
+      variant: 'h3'
+    },
+    {
+      kind: 'json',
+      data: {
+        userId: 123,
+        status: 'success',
+        metadata: {
+          timestamp: '2026-03-03T12:00:00Z',
+          version: '1.0'
+        }
+      },
+      expanded: true
+    }
+  ]
+};
+```
+</CodeGroup>

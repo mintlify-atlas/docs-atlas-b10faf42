@@ -1,0 +1,188 @@
+---
+title: Basic Logging
+description: Learn how to log messages and errors in your React Native app using Beagle's built-in logging features
+---
+
+Beagle provides two built-in log types for common logging scenarios: `MessageLog` for general messages and `ErrorLog` for error tracking.
+
+## Log Levels
+
+Beagle supports five log levels to categorize your logs:
+
+- `loading` - For pending operations
+- `info` - For informational messages (default)
+- `warning` - For warnings that need attention
+- `error` - For errors and exceptions
+- `success` - For successful operations
+
+Each log level is visually distinguished in the Beagle inspector with different colors and indicators.
+
+## Using MessageLog
+
+`MessageLog` is perfect for logging general information, warnings, and success messages throughout your application.
+
+<Steps>
+  <Step title="Import MessageLog">
+    ```tsx
+    import { Beagle, MessageLog } from 'react-native-beagle';
+    ```
+  </Step>
+
+  <Step title="Log messages with different levels">
+    <CodeGroup>
+      ```tsx Info Message
+      Beagle.log(new MessageLog('User logged in successfully', 'info'));
+      ```
+
+      ```tsx Warning Message
+      Beagle.log(new MessageLog('API rate limit approaching', 'warning'));
+      ```
+
+      ```tsx Success Message
+      Beagle.log(new MessageLog('Data synchronized', 'success'));
+      ```
+
+      ```tsx Loading State
+      Beagle.log(new MessageLog('Fetching user data...', 'loading'));
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<Note>
+  The second parameter (log level) is optional and defaults to `'info'` if not specified.
+</Note>
+
+## Using ErrorLog
+
+`ErrorLog` is specifically designed for error tracking. It automatically extracts error details including the message, stack trace, and cause.
+
+<Steps>
+  <Step title="Import ErrorLog">
+    ```tsx
+    import { Beagle, ErrorLog } from 'react-native-beagle';
+    ```
+  </Step>
+
+  <Step title="Log errors in try-catch blocks">
+    ```tsx
+    try {
+      // Some code that might throw an error
+      await fetchUserData();
+    } catch (error) {
+      Beagle.log(new ErrorLog(error));
+    }
+    ```
+  </Step>
+</Steps>
+
+### ErrorLog Implementation
+
+The `ErrorLog` class automatically handles different error types:
+
+```ts
+export class ErrorLog extends BeagleLog {
+  error: unknown;
+
+  constructor(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    super(message, 'error');
+    this.error = error;
+  }
+}
+```
+
+When you log an error, Beagle's `ErrorLogPlugin` provides a detailed view that includes:
+
+- **Name**: The error type (e.g., `TypeError`, `ReferenceError`)
+- **Message**: The error message
+- **Stack**: Full stack trace for debugging
+- **Cause**: The underlying cause if available
+
+## When to Use Each Log Type
+
+<Tabs>
+  <Tab title="MessageLog">
+    Use `MessageLog` for:
+    - Application state changes
+    - User actions and events
+    - API call status updates
+    - Feature flag toggles
+    - Success confirmations
+    - General debugging information
+
+    ```tsx
+    // Application events
+    Beagle.log(new MessageLog('App launched', 'info'));
+    
+    // User actions
+    Beagle.log(new MessageLog('User tapped checkout button', 'info'));
+    
+    // Status updates
+    Beagle.log(new MessageLog('Payment processed successfully', 'success'));
+    ```
+  </Tab>
+
+  <Tab title="ErrorLog">
+    Use `ErrorLog` for:
+    - Exception handling
+    - API errors
+    - Validation failures
+    - Runtime errors
+    - Network failures
+
+    ```tsx
+    // Exception handling
+    try {
+      await processPayment();
+    } catch (error) {
+      Beagle.log(new ErrorLog(error));
+    }
+    
+    // API errors
+    if (!response.ok) {
+      Beagle.log(new ErrorLog(new Error(`API Error: ${response.status}`)));
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Example
+
+Here's a complete example showing both log types in action:
+
+```tsx
+import { useEffect } from 'react';
+import { Beagle, MessageLog, ErrorLog } from 'react-native-beagle';
+
+function UserProfile({ userId }: { userId: string }) {
+  useEffect(() => {
+    async function loadProfile() {
+      Beagle.log(new MessageLog('Loading user profile...', 'loading'));
+      
+      try {
+        const response = await fetch(`/api/users/${userId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        Beagle.log(new MessageLog('User profile loaded', 'success'));
+        
+        return data;
+      } catch (error) {
+        Beagle.log(new ErrorLog(error));
+      }
+    }
+    
+    loadProfile();
+  }, [userId]);
+  
+  // Component rendering...
+}
+```
+
+<Tip>
+  Open the Beagle inspector to see all your logs organized by timestamp, with color-coded indicators for each log level.
+</Tip>

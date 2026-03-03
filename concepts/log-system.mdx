@@ -1,0 +1,292 @@
+---
+title: Log System
+description: Understanding Beagle's log types, levels, and tracking system
+---
+
+Beagle's log system is built on an extensible architecture where all logs extend a base `BeagleLog` class. This provides a consistent interface for tracking, filtering, and displaying different types of events in your application.
+
+## BeagleLog Abstract Class
+
+All logs in Beagle extend the `BeagleLog` abstract class, which provides core functionality:
+
+```typescript
+export abstract class BeagleLog {
+  id: string;
+  time: Date;
+  message: string;
+  level: LogLevel = 'info';
+
+  constructor(message: string, level?: LogLevel, id?: string) {
+    this.id = id ?? nanoid(6);
+    this.time = new Date();
+    this.message = message;
+    this.level = level ?? 'info';
+  }
+
+  filter(query: string): boolean {
+    return this.message.toLowerCase().includes(query.toLowerCase());
+  }
+}
+```
+
+### Core Properties
+
+<Accordion title="id: string">
+A unique identifier for each log entry. Auto-generated using `nanoid(6)` to create a short, URL-safe ID. Can be provided manually for log updates (like network request/response pairs).
+</Accordion>
+
+<Accordion title="time: Date">
+The timestamp when the log was created. Used for chronological ordering and displaying relative times in the inspector.
+</Accordion>
+
+<Accordion title="message: string">
+The primary display text for the log. This appears in the log list and is searchable.
+</Accordion>
+
+<Accordion title="level: LogLevel">
+The severity/type of the log, which determines its visual appearance and icon.
+</Accordion>
+
+## Log Levels
+
+Beagle supports five log levels, each with distinct visual styling:
+
+```typescript
+export type LogLevel = 'loading' | 'info' | 'warning' | 'error' | 'success';
+```
+
+<Accordion title="loading">
+Indicates an ongoing operation. Commonly used for network requests that haven't completed yet.
+
+**Visual:** Spinner or progress indicator  
+**Example:** Network request pending response
+</Accordion>
+
+<Accordion title="info">
+General informational messages. The default level for most logs.
+
+**Visual:** Blue/neutral color  
+**Example:** "User navigated to Settings screen"
+</Accordion>
+
+<Accordion title="warning">
+Potential issues that don't prevent operation but deserve attention.
+
+**Visual:** Yellow/orange color  
+**Example:** HTTP 3xx redirects, deprecated API usage
+</Accordion>
+
+<Accordion title="error">
+Errors and failures that need immediate attention.
+
+**Visual:** Red color  
+**Example:** Network failures, caught exceptions, HTTP 4xx/5xx responses
+</Accordion>
+
+<Accordion title="success">
+Successful completion of an operation.
+
+**Visual:** Green color  
+**Example:** HTTP 2xx responses, successful data fetches
+</Accordion>
+
+## How Logs Are Tracked
+
+Logs flow through a centralized system managed by `BeaglePlugins`:
+
+### 1. Log Creation
+
+Any code can create a log by instantiating a `BeagleLog` subclass:
+
+```typescript
+const log = new MessageLog('User logged in', 'success');
+BeaglePlugins.log(log);
+```
+
+### 2. Queueing
+
+If the system isn't ready (provider not mounted), logs are queued:
+
+```typescript
+static log(log: BeagleLog) {
+  if (!this.enabled) return;
+  if (this.logAction) {
+    this.logAction(log);
+    return;
+  }
+
+  this.queue.push(log);
+}
+```
+
+<Info>
+This ensures logs created during app initialization aren't lost.
+</Info>
+
+### 3. Storage
+
+Once the provider is ready, logs are added to React state and displayed in the inspector:
+
+```typescript
+BeaglePlugins.setLogAction(addLog);
+```
+
+### 4. Display
+
+The appropriate plugin is found and used to render the log:
+
+```typescript
+static findPlugin<T extends BeagleLog>(log: T): BeagleLogPlugin<T> {
+  const logName = log.constructor.name;
+
+  if (this.cache.has(logName)) {
+    return this.cache.get(logName) as BeagleLogPlugin<T>;
+  }
+
+  const logPlugin = this.plugins.find((plugin) => plugin.canHandle(log));
+
+  if (!logPlugin) {
+    throw new Error(`No plugin found for log: ${typeof log} ${logName}`);
+  }
+
+  this.cache.set(logName, logPlugin);
+  return logPlugin as BeagleLogPlugin<T>;
+}
+```
+
+<Tip>
+Plugin lookups are cached by log class name for performance.
+</Tip>
+
+## Built-in Log Types
+
+Beagle includes three built-in log types, each designed for specific use cases:
+
+### MessageLog
+
+The simplest log type, used for general messages:
+
+```typescript
+export class MessageLog extends BeagleLog {}
+```
+
+**Usage:**
+```typescript
+import { Beagle } from 'react-native-beagle';
+
+Beagle.log('User opened settings', 'info');
+Beagle.success('Profile updated');
+Beagle.warn('API deprecated, migrate to v2');
+```
+
+### ErrorLog
+
+Captures JavaScript errors with full context:
+
+```typescript
+export class ErrorLog extends BeagleLog {
+  error: unknown;
+
+  constructor(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    super(message, 'error');
+    this.error = error;
+  }
+}
+```
+
+**Features:**
+- Automatically extracts error message
+- Stores the full error object for inspection
+- Always uses 'error' level
+
+**Usage:**
+```typescript
+try {
+  await riskyOperation();
+} catch (error) {
+  Beagle.error(error);
+}
+```
+
+### NetworkingLog
+
+Tracks HTTP requests and responses:
+
+```typescript
+export class NetworkingLog extends BeagleLog {
+  url: string;
+  host: string;
+  request: NetworkingRequest;
+  response?: NetworkingResponse;
+
+  constructor(
+    request: NetworkingRequest,
+    response?: NetworkingResponse,
+    id?: string
+  ) {
+    // ... URL parsing logic ...
+    const message = `${request.method} ${path}`;
+
+    if (response) {
+      const level: LogLevel = (() => {
+        if (response.kind === 'error' || response.status >= 400) {
+          return 'error';
+        }
+        if (response.status >= 300) {
+          return 'warning';
+        }
+        return 'success';
+      })();
+
+      super(message, level, id);
+    } else {
+      super(message, 'loading', id);
+    }
+
+    this.url = url;
+    this.host = host;
+    this.request = request;
+    this.response = response;
+  }
+
+  filter(query: string): boolean {
+    return (
+      this.message.toLowerCase().includes(query.toLowerCase()) ||
+      this.host.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+}
+```
+
+**Features:**
+- Parses URL into host and path
+- Automatically determines log level from response status
+- Supports updating from 'loading' to final status
+- Enhanced filtering by URL and host
+- Tracks request/response timing
+
+**Log Level Logic:**
+- No response: `loading`
+- Status 2xx: `success`
+- Status 3xx: `warning`
+- Status 4xx/5xx or error: `error`
+
+<Note>
+NetworkingLog can be created without a response, then updated with the same ID when the response arrives. This allows the log to transition from 'loading' to the final state.
+</Note>
+
+## Custom Filtering
+
+Logs can override the `filter()` method to customize search behavior. For example, `NetworkingLog` also searches the host:
+
+```typescript
+filter(query: string): boolean {
+  return (
+    this.message.toLowerCase().includes(query.toLowerCase()) ||
+    this.host.toLowerCase().includes(query.toLowerCase())
+  );
+}
+```
+
+This allows users to search network logs by domain name, not just the request path.

@@ -1,0 +1,78 @@
+---
+title: 'BeagleProvider'
+description: 'Root provider component for Beagle functionality'
+---
+
+The `BeagleProvider` component wraps your application to enable the Beagle inspector and logging functionality.
+
+## Props
+
+<ParamField path="enabled" type="boolean" default="true">
+  Controls whether Beagle is enabled. When `false`, all logging is disabled and the inspector is not available. Useful for disabling Beagle in production builds.
+</ParamField>
+
+<ParamField path="copy" type="(value: string) => Promise<void>">
+  Optional function to handle copying text to clipboard. If not provided, copy functionality will be unavailable in the inspector.
+</ParamField>
+
+<ParamField path="theme" type="'light' | 'dark'" default="'light'">
+  Visual theme for the Beagle inspector interface.
+</ParamField>
+
+<ParamField path="children" type="React.ReactElement" required>
+  Your application's root component.
+</ParamField>
+
+## Usage
+
+```typescript
+import { BeagleProvider } from 'react-native-beagle';
+import Clipboard from '@react-native-clipboard/clipboard';
+import { App } from './App';
+
+export default function Root() {
+  const handleCopy = async (value: string) => {
+    await Clipboard.setString(value);
+  };
+
+  return (
+    <BeagleProvider
+      enabled={__DEV__}
+      copy={handleCopy}
+      theme="dark"
+    >
+      <App />
+    </BeagleProvider>
+  );
+}
+```
+
+## Conditional Rendering
+
+The `enabled` prop allows you to conditionally enable Beagle based on your environment:
+
+```typescript
+<BeagleProvider enabled={__DEV__}>
+  <App />
+</BeagleProvider>
+```
+
+When disabled, `BeagleProvider` renders a minimal context provider with no-op functions, ensuring zero overhead in production.
+
+## Theme Support
+
+Beagle supports both light and dark themes that automatically style the entire inspector interface:
+
+```typescript
+import { useColorScheme } from 'react-native';
+
+function Root() {
+  const colorScheme = useColorScheme();
+
+  return (
+    <BeagleProvider theme={colorScheme === 'dark' ? 'dark' : 'light'}>
+      <App />
+    </BeagleProvider>
+  );
+}
+```

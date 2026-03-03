@@ -1,80 +1,140 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with React Native Beagle in minutes with this quick start guide.
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
+This guide will help you set up React Native Beagle and start logging in your app.
 
-### Step 1: Set up your local environment
+## Basic Setup
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Wrap your app with BeagleProvider">
+    Import the `BeagleProvider` component and wrap your app's root component:
 
-### Step 2: Deploy your changes
+    ```tsx
+    import { BeagleProvider } from 'react-native-beagle';
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    export default function App() {
+      return (
+        <BeagleProvider>
+          {/* Your app components */}
+        </BeagleProvider>
+      );
+    }
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    The `BeagleProvider` initializes Beagle and makes it available throughout your app via React Context.
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Add a way to open the inspector">
+    By default, Beagle does not open automatically. You can add a button or use a gesture (like shaking the device) to trigger it manually.
 
-### Step 3: Go live
+    Here's an example using the `useBeagle` hook and a button:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```tsx
+    import { useBeagle } from 'react-native-beagle';
 
-## Next steps
+    function MyComponent() {
+      const { openInspector } = useBeagle();
 
-Now that you have your docs running, explore these key features:
+      return (
+        <Button onPress={openInspector}>Open Beagle Inspector</Button>
+      );
+    }
+    ```
+
+    <Note>
+      The `useBeagle` hook provides access to Beagle's context, including the `openInspector` method to show the inspector UI.
+    </Note>
+  </Step>
+
+  <Step title="Log your first messages">
+    Use the `Beagle` API to log messages and errors:
+
+    ```tsx
+    import { Beagle, ErrorLog, MessageLog } from 'react-native-beagle';
+
+    // Log an info message
+    Beagle.log(new MessageLog('App loaded', 'info'));
+
+    // Log an error
+    try {
+      // Some code that might throw an error
+    } catch (error) {
+      Beagle.log(new ErrorLog('Something went wrong', error));
+    }
+    ```
+
+    Network requests are logged automatically, so you don't need to do anything extra to track API calls.
+  </Step>
+
+  <Step title="Open the inspector and view logs">
+    Tap the button you created (or trigger your custom gesture) to open the Beagle inspector. You'll see:
+
+    - All logged messages and errors
+    - Automatic network request logs with full details
+    - The ability to filter, search, and export logs
+    - Detailed views with headers, bodies, and timing information
+  </Step>
+</Steps>
+
+## What's Next?
+
+You've successfully set up React Native Beagle! Here are some next steps:
 
 <CardGroup cols={2}>
+  <Card title="Create Custom Plugins" icon="puzzle-piece">
+    Learn how to create custom plugins to log analytics events, feature flags, or other custom data.
+  </Card>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Card title="Customize Detail Pages" icon="file-lines">
+    Design custom detail pages for your log types using Beagle's flexible content system.
+  </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Card title="Configure Themes" icon="palette">
+    Customize the inspector UI with light and dark themes to match your app's design.
+  </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Export and Share Logs" icon="share">
+    Learn how to export logs as JSON for sharing with your team or further analysis.
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Complete Example
+
+Here's a complete minimal example putting it all together:
+
+```tsx
+import React from 'react';
+import { View, Button } from 'react-native';
+import { BeagleProvider, useBeagle, Beagle, MessageLog } from 'react-native-beagle';
+
+function HomeScreen() {
+  const { openInspector } = useBeagle();
+
+  const handlePress = () => {
+    Beagle.log(new MessageLog('Button pressed', 'info'));
+  };
+
+  return (
+    <View>
+      <Button onPress={handlePress} title="Do Something" />
+      <Button onPress={openInspector} title="Open Beagle" />
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <BeagleProvider>
+      <HomeScreen />
+    </BeagleProvider>
+  );
+}
+```
+
+<Warning>
+  Remember to disable Beagle in production builds to avoid exposing sensitive information. You can conditionally render the `BeagleProvider` based on `__DEV__` or an environment variable.
+</Warning>

@@ -1,0 +1,72 @@
+---
+title: MessageLog
+description: Basic log class for general messages in React Native Beagle
+---
+
+`MessageLog` is the simplest log type, extending `BeagleLog` without any additional properties. Use it for general-purpose logging of informational messages.
+
+## Overview
+
+`MessageLog` inherits all properties and methods from [`BeagleLog`](/api/beagle-log) and doesn't add any additional functionality. It's the default choice for logging custom messages at various severity levels.
+
+## Constructor
+
+<ParamField path="message" type="string" required>
+  The log message content.
+</ParamField>
+
+<ParamField path="level" type="LogLevel" default="info">
+  Optional severity level. One of: `'loading'` | `'info'` | `'warning'` | `'error'` | `'success'`.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional custom ID. If not provided, a unique 6-character ID is generated automatically.
+</ParamField>
+
+## When to Use
+
+Use `MessageLog` for:
+
+- General application events
+- Custom debug messages
+- User action tracking
+- Application state changes
+- Any log that doesn't fit the specific types (Error, Networking)
+
+## Usage Examples
+
+### Basic Info Message
+
+```typescript
+import { MessageLog } from 'react-native-beagle';
+
+const log = new MessageLog('User logged in successfully');
+```
+
+### Success Message
+
+```typescript
+const log = new MessageLog('Data saved to database', 'success');
+```
+
+### Warning Message
+
+```typescript
+const log = new MessageLog('API rate limit approaching', 'warning');
+```
+
+### Custom ID
+
+```typescript
+const log = new MessageLog(
+  'Payment processed',
+  'success',
+  'payment-123'
+);
+```
+
+## Type Definition
+
+```typescript
+class MessageLog extends BeagleLog {}
+```

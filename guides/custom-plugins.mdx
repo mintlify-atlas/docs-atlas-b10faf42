@@ -1,0 +1,317 @@
+---
+title: Creating Custom Plugins
+description: Extend Beagle with custom plugins to log and display domain-specific data from your React Native app
+---
+
+Beagle's plugin system allows you to create custom log types for any data you want to track. This guide walks through creating a custom plugin using a real example from the Beagle repository.
+
+## Plugin Architecture
+
+Every Beagle plugin consists of two parts:
+
+1. **Log Class**: Extends `BeagleLog` to store your custom data
+2. **Plugin Class**: Extends `BeagleLogPlugin` to handle and display the log
+
+## Step-by-Step Guide
+
+We'll create an analytics plugin that tracks events and parameters, using the actual implementation from the Beagle example app.
+
+<Steps>
+  <Step title="Create the Log Class">
+    First, create a class that extends `BeagleLog` to hold your custom data:
+
+    ```ts
+    import { BeagleLog } from 'react-native-beagle';
+
+    export class AnalyticsLog extends BeagleLog {
+      event: string;
+      params: Record<string, any>;
+
+      constructor(event: string, params: Record<string, any>) {
+        super(`Log ${event}`, 'info');
+        this.event = event;
+        this.params = params;
+      }
+    }
+    ```
+
+    The constructor calls `super()` with:
+    - A message that appears in the log list
+    - A log level (`'info'`, `'error'`, `'warning'`, etc.)
+  </Step>
+
+  <Step title="Extend BeagleLogPlugin">
+    Create a plugin class that extends `BeagleLogPlugin`:
+
+    ```ts
+    import {
+      BeagleLogPlugin,
+      type BeagleLog,
+      type DetailContent,
+    } from 'react-native-beagle';
+    import { AnalyticsLog } from './types';
+
+    export class AnalyticsLogPlugin extends BeagleLogPlugin<AnalyticsLog> {
+      name: string = 'Analytics';
+
+      canHandle(log: BeagleLog): log is AnalyticsLog {
+        return log instanceof AnalyticsLog;
+      }
+
+      provideDetailContent(log: AnalyticsLog): DetailContent {
+        return {
+          key: 'analytics',
+          kind: 'list',
+          children: [
+            {
+              kind: 'label',
+              label: 'Event',
+              value: log.event,
+            },
+            { kind: 'text', text: 'Parameters', variant: 'body', bold: true },
+            {
+              kind: 'json',
+              data: log.params,
+            },
+          ],
+        };
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Implement canHandle">
+    The `canHandle` method determines if this plugin can handle a given log:
+
+    ```ts
+    canHandle(log: BeagleLog): log is AnalyticsLog {
+      return log instanceof AnalyticsLog;
+    }
+    ```
+
+    This uses TypeScript's type guard to check if the log is an instance of your custom log class.
+  </Step>
+
+  <Step title="Implement provideDetailContent">
+    The `provideDetailContent` method defines how your log appears in the detail view:
+
+    ```ts
+    provideDetailContent(log: AnalyticsLog): DetailContent {
+      return {
+        key: 'analytics',
+        kind: 'list',
+        children: [
+          {
+            kind: 'label',
+            label: 'Event',
+            value: log.event,
+          },
+          { kind: 'text', text: 'Parameters', variant: 'body', bold: true },
+          {
+            kind: 'json',
+            data: log.params,
+          },
+        ],
+      };
+    }
+    ```
+
+    This creates a list view with:
+    - A label showing the event name
+    - A bold text header for "Parameters"
+    - A JSON tree view of the event parameters
+  </Step>
+
+  <Step title="Register the Plugin">
+    Register your plugin with Beagle before logging any data:
+
+    ```tsx
+    import { Beagle } from 'react-native-beagle';
+    import { AnalyticsLogPlugin } from './plugins/Analytics/AnalyticsLogPlugin';
+
+    // Register the plugin (do this once, typically in your app's entry point)
+    Beagle.registerPlugin(new AnalyticsLogPlugin());
+    ```
+  </Step>
+
+  <Step title="Use Your Custom Log">
+    Now you can log analytics events throughout your app:
+
+    ```tsx
+    import { Beagle } from 'react-native-beagle';
+    import { AnalyticsLog } from './plugins/Analytics/types';
+
+    // Log an analytics event
+    Beagle.log(
+      new AnalyticsLog('button_clicked', {
+        screen: 'home',
+        button_id: 'checkout',
+        user_id: '12345',
+      })
+    );
+
+    // Log another event
+    Beagle.log(
+      new AnalyticsLog('purchase_completed', {
+        product_id: 'ABC123',
+        price: 29.99,
+        currency: 'USD',
+      })
+    );
+    ```
+  </Step>
+</Steps>
+
+## Optional: Customize the Card Footer
+
+You can also customize how logs appear in the list view by implementing `provideCardFooter`:
+
+```ts
+import type { BoxContent, Content } from 'react-native-beagle';
+
+export class AnalyticsLogPlugin extends BeagleLogPlugin<AnalyticsLog> {
+  // ... other methods ...
+
+  provideCardFooter(log: AnalyticsLog): Content | BoxContent | null {
+    return {
+      kind: 'text',
+      text: `${Object.keys(log.params).length} parameters`,
+      variant: 'caption',
+    };
+  }
+}
+```
+
+This displays a parameter count at the bottom of each analytics log card.
+
+## Complete Working Example
+
+Here's the complete implementation with both files:
+
+<CodeGroup>
+  ```ts types.ts
+  import { BeagleLog } from 'react-native-beagle';
+
+  export class AnalyticsLog extends BeagleLog {
+    event: string;
+    params: Record<string, any>;
+
+    constructor(event: string, params: Record<string, any>) {
+      super(`Log ${event}`, 'info');
+      this.event = event;
+      this.params = params;
+    }
+  }
+  ```
+
+  ```ts AnalyticsLogPlugin.ts
+  import {
+    BeagleLogPlugin,
+    type BeagleLog,
+    type DetailContent,
+  } from 'react-native-beagle';
+  import { AnalyticsLog } from './types';
+
+  export class AnalyticsLogPlugin extends BeagleLogPlugin<AnalyticsLog> {
+    name: string = 'Analytics';
+
+    canHandle(log: BeagleLog): log is AnalyticsLog {
+      return log instanceof AnalyticsLog;
+    }
+
+    provideDetailContent(log: AnalyticsLog): DetailContent {
+      return {
+        key: 'analytics',
+        kind: 'list',
+        children: [
+          {
+            kind: 'label',
+            label: 'Event',
+            value: log.event,
+          },
+          { kind: 'text', text: 'Parameters', variant: 'body', bold: true },
+          {
+            kind: 'json',
+            data: log.params,
+          },
+        ],
+      };
+    }
+  }
+  ```
+
+  ```tsx Usage
+  import { useEffect } from 'react';
+  import { Beagle } from 'react-native-beagle';
+  import { AnalyticsLogPlugin } from './plugins/Analytics/AnalyticsLogPlugin';
+  import { AnalyticsLog } from './plugins/Analytics/types';
+
+  // Register the plugin once
+  Beagle.registerPlugin(new AnalyticsLogPlugin());
+
+  function MyComponent() {
+    useEffect(() => {
+      // Track screen view
+      Beagle.log(
+        new AnalyticsLog('screen_view', {
+          screen_name: 'home',
+          timestamp: new Date().toISOString(),
+        })
+      );
+    }, []);
+
+    const handlePurchase = () => {
+      // Track purchase event
+      Beagle.log(
+        new AnalyticsLog('purchase', {
+          item_id: 'PROD_123',
+          price: 49.99,
+          quantity: 1,
+        })
+      );
+    };
+
+    return (
+      <Button onPress={handlePurchase}>Buy Now</Button>
+    );
+  }
+  ```
+</CodeGroup>
+
+## Plugin Best Practices
+
+<Warning>
+  Always register your plugins before logging any data. Unregistered log types will fall back to basic rendering without custom detail views.
+</Warning>
+
+<Tip>
+  Use the `name` property to identify your plugin in the Beagle UI. This appears in filters and export options.
+</Tip>
+
+### Tips for Building Plugins
+
+1. **Keep log messages concise**: The message appears in the list view, so make it scannable
+2. **Use appropriate log levels**: This helps with visual filtering in the inspector
+3. **Structure detail content logically**: Group related information using sections
+4. **Leverage content types**: Use `json`, `label`, `section`, and `text` to create rich views
+5. **Add card footers for key metrics**: Show important data without opening the detail view
+
+## Advanced: Custom Export
+
+You can customize how logs are exported by overriding `exportToJSON`:
+
+```ts
+export class AnalyticsLogPlugin extends BeagleLogPlugin<AnalyticsLog> {
+  // ... other methods ...
+
+  exportToJSON(log: AnalyticsLog): string {
+    return JSON.stringify({
+      timestamp: log.time.toISOString(),
+      event: log.event,
+      parameters: log.params,
+    }, null, 2);
+  }
+}
+```
+
+This formats the exported data in a custom structure optimized for your analytics pipeline.
